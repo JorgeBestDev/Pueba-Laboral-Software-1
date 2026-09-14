@@ -100,7 +100,10 @@ export function GlassButton({
   )
 }
 
-export function GlassInput({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
+export function GlassInput({
+  className = '',
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & { ref?: React.Ref<HTMLInputElement> }) {
   return <input className={`glass-input ${className}`} {...props} />
 }
 

@@ -47,13 +47,48 @@ def create_interaction():
             "user_id": lambda value: integer_value(value, field="user_id", minimum=1),
             "provider": lambda value: optional_string(value, field="provider", max_length=100),
             "model": lambda value: optional_string(value, field="model", max_length=100),
+            "session_key": lambda value: optional_string(value, field="session_key", max_length=255),
         },
     )
+
+    user_id = payload.get("user_id")
+    if not user_id:
+        import jwt
+        from flask import current_app
+
+        header = request.headers.get("Authorization", "")
+        scheme, _, token = header.partition(" ")
+        if scheme.lower() == "bearer" and token:
+            try:
+                decoded = jwt.decode(
+                    token, current_app.config["SECRET_KEY"], algorithms=["HS256"]
+                )
+                if decoded.get("type", "access") == "access":
+                    user_id = int(decoded["sub"])
+            except Exception:
+                pass
+
+    session_key = payload.get("session_key") or request.headers.get("X-Cart-Session")
+
     interaction = ai_service.create_interaction(
-        user_id=payload.get("user_id"),
+        user_id=user_id,
         use_case=payload.get("use_case"),
         prompt=payload.get("prompt"),
         provider=payload.get("provider"),
         model=payload.get("model"),
+        session_key=session_key,
     )
-    return jsonify({"data": {"id": interaction.id, "status": interaction.status}}), 201
+    return (
+        jsonify(
+            {
+                "data": {
+                    "id": interaction.id,
+                    "status": interaction.status,
+                    "response": interaction.response,
+                    "provider": interaction.provider,
+                    "model": interaction.model,
+                }
+            }
+        ),
+        201,
+    )

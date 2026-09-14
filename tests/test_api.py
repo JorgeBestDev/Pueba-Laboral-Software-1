@@ -506,6 +506,65 @@ class ApiTestCase(unittest.TestCase):
         )
         self.assertEqual(login.status_code, 200)
 
+    def test_ai_interaction_returns_response(self):
+        response = self.client.post(
+            "/api/v1/ai/interactions",
+            json={
+                "use_case": "shopping_assistant",
+                "prompt": "Recomiéndame algo para regalar",
+            },
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.get_json()["data"]
+        self.assertIn("id", data)
+        self.assertEqual(data["status"], "completed")
+        self.assertIn("response", data)
+        self.assertIsInstance(data["response"], str)
+        self.assertTrue(len(data["response"]) > 0)
+        self.assertIn("provider", data)
+        self.assertIn("model", data)
+
+    def test_ai_interaction_with_gemini_provider(self):
+        from unittest.mock import MagicMock, patch
+
+        mock_response = MagicMock()
+        mock_response.text = "Te recomiendo el producto Test product por $10.00."
+
+        mock_model_instance = MagicMock()
+        mock_model_instance.generate_content.return_value = mock_response
+
+        with patch("google.generativeai.configure") as mock_configure, \
+             patch("google.generativeai.GenerativeModel", return_value=mock_model_instance) as mock_gen_model:
+            self.app.config["GEMINI_API_KEY"] = "fake-test-key"
+            response = self.client.post(
+                "/api/v1/ai/interactions",
+                json={
+                    "use_case": "shopping_assistant",
+                    "prompt": "¿Qué me recomiendas?",
+                },
+            )
+            self.assertEqual(response.status_code, 201)
+            data = response.get_json()["data"]
+            self.assertEqual(data["response"], "Te recomiendo el producto Test product por $10.00.")
+            self.assertEqual(data["provider"], "google")
+            self.assertEqual(data["model"], "gemini-3.6-flash")
+            mock_configure.assert_called_once_with(api_key="fake-test-key")
+            mock_model_instance.generate_content.assert_called_once()
+
+    def test_ai_event_is_recorded(self):
+        response = self.client.post(
+            "/api/v1/ai/events",
+            json={
+                "event_type": "view_product",
+                "metadata": {"source": "home_featured"},
+                "session_key": "test-session-123",
+            },
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.get_json()["data"]
+        self.assertIn("id", data)
+        self.assertEqual(data["event_type"], "view_product")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -573,15 +573,23 @@ export async function recordEvent(input: {
   }
 }
 
-export async function createAiInteraction(input: { use_case: string; prompt: string }): Promise<{
+export type AIInteractionResult = {
   id: number
   status: string
-}> {
+  response: string | null
+  provider?: string | null
+  model?: string | null
+}
+
+export async function createAiInteraction(input: { use_case: string; prompt: string }): Promise<AIInteractionResult> {
   const tokens = getStoredTokens()
-  return apiFetch('/ai/interactions', {
+  const res = await apiFetch<{ data: AIInteractionResult }>('/ai/interactions', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      ...input,
+      session_key: tokens?.access_token ? undefined : getCartSessionKey(),
+    }),
     skipAuth: !tokens?.access_token,
-    skipCartSession: true,
   })
+  return res.data
 }

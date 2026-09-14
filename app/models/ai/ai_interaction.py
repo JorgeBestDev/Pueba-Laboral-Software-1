@@ -13,7 +13,7 @@ class AIInteraction(TimestampMixin, db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     use_case: Mapped[str] = mapped_column(String(80), nullable=False)
-    prompt: Mapped[str] = mapped_column(String(2000), nullable=False)
+    prompt: Mapped[str] = mapped_column(String(10000), nullable=False)
     response: Mapped[str | None] = mapped_column(String(10000))
     provider: Mapped[str | None] = mapped_column(String(80))
     model: Mapped[str | None] = mapped_column(String(80))
