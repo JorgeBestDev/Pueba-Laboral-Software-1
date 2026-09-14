@@ -1,4 +1,5 @@
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import Category, Product, ProductVariant
@@ -51,6 +52,11 @@ class CatalogService:
         total = db.session.scalar(select(func.count()).select_from(query.subquery())) or 0
         products = db.session.scalars(
             query.order_by(order)
+            .options(
+                selectinload(Product.categories),
+                selectinload(Product.reviews),
+                selectinload(Product.variants),
+            )
             .offset((page - 1) * per_page)
             .limit(per_page)
         ).all()

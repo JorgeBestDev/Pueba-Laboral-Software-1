@@ -22,7 +22,7 @@ function ProductCard({ product, compact = false }: { product: Product; compact?:
         push('Este producto no tiene variantes disponibles', 'error')
         return
       }
-      await addItem(variant.id, 1)
+      await addItem(variant.id, 1, variant.price)
       push('Producto añadido al carrito', 'success')
     } catch {
       push('No se pudo añadir el producto', 'error')

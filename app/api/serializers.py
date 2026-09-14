@@ -41,7 +41,9 @@ def serialize_category(category: Category, include_products: bool = False) -> di
     return data
 
 
-def serialize_product(product: Product, include_details: bool = False) -> dict[str, Any]:
+def serialize_product(
+    product: Product, include_details: bool = False, include_variants: bool = False
+) -> dict[str, Any]:
     ratings = [review.rating for review in product.reviews]
     data = {
         "id": product.id,
@@ -70,6 +72,11 @@ def serialize_product(product: Product, include_details: bool = False) -> dict[s
             }
             for image in product.images
         ]
+        data["variants"] = [serialize_variant(variant) for variant in product.variants]
+    elif include_variants:
+        # The list endpoint stays lightweight by skipping images, but still needs a
+        # variant id/price so the catalog grid can add to cart without a second
+        # round trip to fetch the full product detail by slug.
         data["variants"] = [serialize_variant(variant) for variant in product.variants]
     return data
 

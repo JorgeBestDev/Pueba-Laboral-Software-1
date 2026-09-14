@@ -28,7 +28,7 @@ def list_products():
     )
     return jsonify(
         {
-            "data": [serialize_product(product) for product in products],
+            "data": [serialize_product(product, include_variants=True) for product in products],
             "meta": {
                 "page": page,
                 "per_page": per_page,

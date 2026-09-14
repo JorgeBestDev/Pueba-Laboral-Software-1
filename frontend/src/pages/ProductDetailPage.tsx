@@ -125,7 +125,7 @@ export function ProductDetailPage() {
   async function handleAdd() {
     if (!selectedVariant) return
     try {
-      await addItem(selectedVariant.id, quantity)
+      await addItem(selectedVariant.id, quantity, selectedVariant.price)
       push('Producto añadido al carrito', 'success')
     } catch (requestError) {
       push(requestError instanceof ApiError ? requestError.message : 'No se pudo añadir el producto', 'error')

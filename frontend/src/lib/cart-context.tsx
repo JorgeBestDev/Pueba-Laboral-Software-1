@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import * as api from './api'
-import type { Cart } from './api'
+import type { Cart, CartItem } from './api'
 import { useAuth } from './auth-context'
 
 type CartContextValue = {
@@ -12,7 +12,7 @@ type CartContextValue = {
   isDrawerOpen: boolean
   openDrawer: () => void
   closeDrawer: () => void
-  addItem: (variantId: number, quantity?: number) => Promise<void>
+  addItem: (variantId: number, quantity?: number, unitPrice?: string) => Promise<void>
   updateItem: (itemId: number, quantity: number) => Promise<void>
   removeItem: (itemId: number) => Promise<void>
   reload: () => Promise<void>
@@ -20,12 +20,23 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null)
 
+// Mirrors the total computed by app/api/serializers.py::serialize_cart so the
+// optimistic client-side cart looks consistent before the server responds.
+function computeTotal(items: CartItem[]): string {
+  const total = items.reduce((sum, item) => sum + Number(item.unit_price ?? 0) * item.quantity, 0)
+  return total.toFixed(2)
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth()
   const [cart, setCart] = useState<Cart | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDrawerOpen, setDrawerOpen] = useState(false)
+  // Tracks the latest cart synchronously so optimistic updates never race with
+  // the async setCart state batching (e.g. two quick clicks in a row).
+  const cartRef = useRef<Cart | null>(null)
+  cartRef.current = cart
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -49,48 +60,85 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated])
 
   const addItem = useCallback(
-    async (variantId: number, quantity = 1) => {
+    async (variantId: number, quantity = 1, unitPrice?: string) => {
       setError(null)
+      const current = cartRef.current ?? (await api.getCurrentCart())
+      const previousCart = current
+
+      // Update the UI immediately (badge count, drawer) instead of waiting for the
+      // round trip; the server response reconciles the real ids/prices right after.
+      const existing = current.items.find((item) => item.variant_id === variantId)
+      const optimisticItems = existing
+        ? current.items.map((item) =>
+            item.variant_id === variantId ? { ...item, quantity: item.quantity + quantity } : item,
+          )
+        : [
+            ...current.items,
+            {
+              id: -Date.now(),
+              variant_id: variantId,
+              quantity,
+              unit_price: unitPrice ?? null,
+            } as CartItem,
+          ]
+      const optimisticCart: Cart = { ...current, items: optimisticItems, total: computeTotal(optimisticItems) }
+      setCart(optimisticCart)
+      setDrawerOpen(true)
+      // Fire-and-forget analytics event; it must never block cart feedback.
+      api
+        .recordEvent({ event_type: 'add_to_cart', metadata: { variant_id: variantId, quantity } })
+        .catch(() => undefined)
+
       try {
-        const current = cart ?? (await api.getCurrentCart())
         const updated = await api.addCartItem(current.id, variantId, quantity)
         setCart(updated)
-        setDrawerOpen(true)
-        await api.recordEvent({ event_type: 'add_to_cart', metadata: { variant_id: variantId, quantity } })
       } catch (requestError) {
+        setCart(previousCart)
         setError(requestError instanceof api.ApiError ? requestError.message : 'No se pudo añadir el producto.')
         throw requestError
       }
     },
-    [cart],
+    [],
   )
 
   const updateItem = useCallback(
     async (itemId: number, quantity: number) => {
-      if (!cart) return
+      const current = cartRef.current
+      if (!current) return
       setError(null)
+      const previousCart = current
+      const optimisticItems = current.items.map((item) => (item.id === itemId ? { ...item, quantity } : item))
+      setCart({ ...current, items: optimisticItems, total: computeTotal(optimisticItems) })
+
       try {
-        const updated = await api.updateCartItem(cart.id, itemId, quantity)
+        const updated = await api.updateCartItem(current.id, itemId, quantity)
         setCart(updated)
       } catch (requestError) {
+        setCart(previousCart)
         setError(requestError instanceof api.ApiError ? requestError.message : 'No se pudo actualizar el carrito.')
       }
     },
-    [cart],
+    [],
   )
 
   const removeItem = useCallback(
     async (itemId: number) => {
-      if (!cart) return
+      const current = cartRef.current
+      if (!current) return
       setError(null)
+      const previousCart = current
+      const optimisticItems = current.items.filter((item) => item.id !== itemId)
+      setCart({ ...current, items: optimisticItems, total: computeTotal(optimisticItems) })
+
       try {
-        const updated = await api.removeCartItem(cart.id, itemId)
+        const updated = await api.removeCartItem(current.id, itemId)
         setCart(updated)
       } catch (requestError) {
+        setCart(previousCart)
         setError(requestError instanceof api.ApiError ? requestError.message : 'No se pudo eliminar el producto.')
       }
     },
-    [cart],
+    [],
   )
 
   const itemCount = useMemo(() => cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0, [cart])
