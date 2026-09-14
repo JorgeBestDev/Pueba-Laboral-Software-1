@@ -16,8 +16,9 @@ services:
         sync: false
 
   # Frontend Web (React + Vite + Tailwind)
-  - type: static
+  - type: web
     name: vokter-web
+    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
