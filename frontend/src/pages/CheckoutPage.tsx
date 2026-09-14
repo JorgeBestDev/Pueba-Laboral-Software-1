@@ -43,7 +43,7 @@ function AddressForm({ onCreated }: { onCreated: (address: Address) => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl border border-dashed border-white/15 p-4">
+    <form onSubmit={handleSubmit} className="space-y-3 border border-dashed border-neutral-300 p-5">
       <div className="grid grid-cols-2 gap-3">
         <GlassInput placeholder="Etiqueta (Casa, Oficina...)" required value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} />
         <GlassInput placeholder="País" required value={form.country} onChange={(event) => setForm({ ...form, country: event.target.value })} />
@@ -91,11 +91,11 @@ export function CheckoutPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="mx-auto max-w-2xl px-5 py-24 text-center lg:px-8">
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center lg:px-8">
         <GlassPanel className="p-10">
-          <h1 className="text-2xl font-semibold">Inicia sesión para continuar</h1>
-          <p className="mt-3 text-slate-400">Necesitas una cuenta para completar tu compra y hacer seguimiento de tu pedido.</p>
-          <Link to="/" className="mt-6 inline-block text-cyan-300 hover:text-cyan-100">
+          <h1 className="font-display text-2xl uppercase">Inicia sesión para continuar</h1>
+          <p className="mt-3 text-neutral-600">Necesitas una cuenta para completar tu compra y hacer seguimiento de tu pedido.</p>
+          <Link to="/" className="mt-6 inline-block text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-70">
             ← Volver al catálogo
           </Link>
         </GlassPanel>
@@ -105,12 +105,12 @@ export function CheckoutPage() {
 
   if (order) {
     return (
-      <div className="mx-auto max-w-2xl px-5 py-24 lg:px-8">
+      <div className="mx-auto max-w-2xl px-4 py-24 lg:px-8">
         <GlassPanel className="p-10 text-center">
           <Badge tone="success">Pedido confirmado</Badge>
-          <h1 className="mt-4 text-3xl font-semibold">¡Gracias por tu compra!</h1>
-          <p className="mt-3 text-slate-400">
-            Pedido #{order.id} por ${order.total}. Estado actual: <span className="text-cyan-200">{order.status}</span>
+          <h1 className="font-display mt-4 text-3xl">¡Gracias por tu compra!</h1>
+          <p className="mt-3 text-neutral-600">
+            Pedido #{order.id} por ${order.total}. Estado actual: <span className="font-medium text-black">{order.status}</span>
           </p>
           <div className="mt-8 flex justify-center gap-3">
             <GlassButton onClick={() => navigate(`/account/orders/${order.id}`)}>Ver seguimiento</GlassButton>
@@ -125,11 +125,11 @@ export function CheckoutPage() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl px-5 py-24 text-center lg:px-8">
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center lg:px-8">
         <GlassPanel className="p-10">
-          <h1 className="text-2xl font-semibold">Tu carrito está vacío</h1>
-          <p className="mt-3 text-slate-400">Añade productos antes de continuar con el pago.</p>
-          <Link to="/" className="mt-6 inline-block text-cyan-300 hover:text-cyan-100">
+          <h1 className="font-display text-2xl uppercase">Tu carrito está vacío</h1>
+          <p className="mt-3 text-neutral-600">Añade productos antes de continuar con el pago.</p>
+          <Link to="/" className="mt-6 inline-block text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-70">
             ← Explorar catálogo
           </Link>
         </GlassPanel>
@@ -159,21 +159,21 @@ export function CheckoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-16 lg:px-8">
-      <h1 className="text-3xl font-semibold tracking-tight">Checkout</h1>
+    <div className="mx-auto max-w-4xl px-4 py-16 lg:px-8">
+      <h1 className="font-display text-3xl uppercase tracking-tight">Checkout</h1>
 
-      <div className="mt-8 flex items-center gap-3">
+      <div className="mt-8 flex flex-wrap items-center gap-4">
         {STEPS.map((label, index) => (
           <div key={label} className="flex items-center gap-3">
             <div
-              className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold ${
-                index <= step ? 'border-cyan-300/50 bg-cyan-300/15 text-cyan-100' : 'border-white/10 text-slate-500'
+              className={`flex h-9 w-9 items-center justify-center border text-sm font-semibold ${
+                index <= step ? 'border-black bg-black text-white' : 'border-neutral-300 text-neutral-400'
               }`}
             >
               {index + 1}
             </div>
-            <span className={index <= step ? 'text-slate-100' : 'text-slate-500'}>{label}</span>
-            {index < STEPS.length - 1 && <div className="h-px w-10 bg-white/10" />}
+            <span className={`text-sm uppercase tracking-wider ${index <= step ? 'text-black' : 'text-neutral-400'}`}>{label}</span>
+            {index < STEPS.length - 1 && <div className="hidden h-px w-8 bg-neutral-200 sm:block" />}
           </div>
         ))}
       </div>
@@ -182,21 +182,22 @@ export function CheckoutPage() {
         <GlassPanel className="p-6">
           {step === 0 && (
             <div>
-              <h2 className="text-lg font-semibold">Selecciona una dirección de envío</h2>
+              <h2 className="font-display text-lg uppercase">Selecciona una dirección de envío</h2>
               <div className="mt-4 space-y-3">
                 {addresses.map((address) => (
                   <button
                     key={address.id}
+                    type="button"
                     onClick={() => setSelectedAddress(address.id)}
-                    className={`block w-full rounded-2xl border p-4 text-left transition ${
-                      selectedAddress === address.id ? 'border-cyan-300/50 bg-cyan-300/10' : 'border-white/10 bg-white/5 hover:border-white/20'
+                    className={`block w-full border p-4 text-left transition ${
+                      selectedAddress === address.id ? 'border-black bg-neutral-50' : 'border-neutral-200 hover:border-neutral-400'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{address.label || 'Dirección'}</span>
                       {address.is_default && <Badge>Predeterminada</Badge>}
                     </div>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-sm text-neutral-600">
                       {address.street}, {address.city} {address.state ? `, ${address.state}` : ''} — {address.country}
                     </p>
                   </button>
@@ -213,7 +214,7 @@ export function CheckoutPage() {
                   />
                 </div>
               ) : (
-                <button onClick={() => setShowAddressForm(true)} className="mt-4 text-sm text-cyan-300 hover:text-cyan-100">
+                <button type="button" onClick={() => setShowAddressForm(true)} className="mt-4 text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-70">
                   + Añadir nueva dirección
                 </button>
               )}
@@ -225,18 +226,19 @@ export function CheckoutPage() {
 
           {step === 1 && (
             <div>
-              <h2 className="text-lg font-semibold">Método de pago</h2>
+              <h2 className="font-display text-lg uppercase">Método de pago</h2>
               <div className="mt-4 space-y-3">
                 {PAYMENT_OPTIONS.map((option) => (
                   <button
                     key={option.value}
+                    type="button"
                     onClick={() => setPaymentMethod(option.value)}
-                    className={`block w-full rounded-2xl border p-4 text-left transition ${
-                      paymentMethod === option.value ? 'border-cyan-300/50 bg-cyan-300/10' : 'border-white/10 bg-white/5 hover:border-white/20'
+                    className={`block w-full border p-4 text-left transition ${
+                      paymentMethod === option.value ? 'border-black bg-neutral-50' : 'border-neutral-200 hover:border-neutral-400'
                     }`}
                   >
                     <p className="font-medium">{option.label}</p>
-                    <p className="text-sm text-slate-400">{option.hint}</p>
+                    <p className="text-sm text-neutral-600">{option.hint}</p>
                   </button>
                 ))}
               </div>
@@ -253,9 +255,9 @@ export function CheckoutPage() {
 
           {step === 2 && (
             <div>
-              <h2 className="text-lg font-semibold">Confirma tu pedido</h2>
-              <p className="mt-2 text-sm text-slate-400">Revisa los detalles antes de finalizar. Este proceso es seguro contra envíos duplicados.</p>
-              {error && <p className="mt-4 text-sm text-rose-300">{error}</p>}
+              <h2 className="font-display text-lg uppercase">Confirma tu pedido</h2>
+              <p className="mt-2 text-sm text-neutral-600">Revisa los detalles antes de finalizar. Este proceso es seguro contra envíos duplicados.</p>
+              {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
               <div className="mt-6 flex gap-3">
                 <GlassButton variant="ghost" onClick={() => setStep(1)} disabled={submitting}>
                   Atrás
@@ -269,20 +271,20 @@ export function CheckoutPage() {
         </GlassPanel>
 
         <GlassPanel className="h-fit p-6">
-          <h2 className="text-lg font-semibold">Resumen del pedido</h2>
+          <h2 className="font-display text-lg uppercase">Resumen del pedido</h2>
           <ul className="mt-4 space-y-3">
             {cart.items.map((item) => (
-              <li key={item.id} className="flex justify-between text-sm text-slate-300">
-                <span>
+              <li key={item.id} className="flex justify-between text-sm">
+                <span className="text-neutral-600">
                   Variante #{item.variant_id} × {item.quantity}
                 </span>
-                <span>${item.unit_price ? (Number(item.unit_price) * item.quantity).toFixed(2) : '0.00'}</span>
+                <span className="font-medium">${item.unit_price ? (Number(item.unit_price) * item.quantity).toFixed(2) : '0.00'}</span>
               </li>
             ))}
           </ul>
-          <div className="mt-4 flex justify-between border-t border-white/10 pt-4 text-lg font-semibold">
+          <div className="mt-4 flex justify-between border-t border-neutral-200 pt-4 text-lg font-bold">
             <span>Total</span>
-            <span className="text-cyan-100">${cart.total}</span>
+            <span>${cart.total}</span>
           </div>
         </GlassPanel>
       </div>

@@ -30,12 +30,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`glass-panel pointer-events-auto rounded-xl px-4 py-3 text-sm shadow-lg ${
+            className={`pointer-events-auto border px-4 py-3 text-sm shadow-lg ${
               toast.tone === 'error'
-                ? 'border-rose-300/30 bg-rose-500/10 text-rose-100'
+                ? 'border-red-200 bg-red-50 text-red-800'
                 : toast.tone === 'success'
-                  ? 'border-emerald-300/30 bg-emerald-500/10 text-emerald-100'
-                  : 'text-slate-100'
+                  ? 'border-neutral-300 bg-black text-white'
+                  : 'border-neutral-200 bg-white text-black'
             }`}
           >
             {toast.message}

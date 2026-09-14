@@ -37,17 +37,17 @@ function OrdersTab() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <p className="text-slate-500">Cargando pedidos…</p>
-  if (orders.length === 0) return <p className="text-slate-500">Aún no tienes pedidos.</p>
+  if (loading) return <p className="text-neutral-500">Cargando pedidos…</p>
+  if (orders.length === 0) return <p className="text-neutral-500">Aún no tienes pedidos.</p>
 
   return (
     <div className="space-y-4">
       {orders.map((order) => (
         <Link key={order.id} to={`/account/orders/${order.id}`}>
-          <GlassPanel className="flex items-center justify-between p-4 transition hover:border-cyan-300/30">
+          <GlassPanel className="flex items-center justify-between p-5 transition hover:border-black">
             <div>
-              <p className="font-medium text-slate-100">Pedido #{order.id}</p>
-              <p className="text-sm text-slate-400">{order.items.length} artículos · ${order.total}</p>
+              <p className="font-medium">Pedido #{order.id}</p>
+              <p className="text-sm text-neutral-600">{order.items.length} artículos · ${order.total}</p>
             </div>
             <Badge tone={STATUS_TONE[order.status]}>{order.status}</Badge>
           </GlassPanel>
@@ -87,27 +87,27 @@ function AddressesTab() {
     }
   }
 
-  if (loading) return <p className="text-slate-500">Cargando direcciones…</p>
-  if (addresses.length === 0) return <p className="text-slate-500">No tienes direcciones guardadas. Agrégalas durante el checkout.</p>
+  if (loading) return <p className="text-neutral-500">Cargando direcciones…</p>
+  if (addresses.length === 0) return <p className="text-neutral-500">No tienes direcciones guardadas. Agrégalas durante el checkout.</p>
 
   return (
     <div className="space-y-4">
       {addresses.map((address) => (
-        <GlassPanel key={address.id} className="p-4">
+        <GlassPanel key={address.id} className="p-5">
           <div className="flex items-center justify-between">
             <span className="font-medium">{address.label || 'Dirección'}</span>
             {address.is_default ? (
               <Badge tone="success">Predeterminada</Badge>
             ) : (
-              <button onClick={() => handleSetDefault(address.id)} className="text-xs text-cyan-300 hover:text-cyan-100">
+              <button type="button" onClick={() => handleSetDefault(address.id)} className="text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-70">
                 Marcar como predeterminada
               </button>
             )}
           </div>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-neutral-600">
             {address.street}, {address.city} {address.state ? `, ${address.state}` : ''} — {address.country}
           </p>
-          <button onClick={() => handleDelete(address.id)} className="mt-2 text-xs text-slate-500 hover:text-rose-300">
+          <button type="button" onClick={() => handleDelete(address.id)} className="mt-2 text-xs uppercase tracking-wider text-neutral-500 underline underline-offset-4 hover:text-black">
             Eliminar
           </button>
         </GlassPanel>
@@ -130,18 +130,18 @@ function WishlistTab() {
     }
   }
 
-  if (loading) return <p className="text-slate-500">Cargando wishlist…</p>
-  if (!wishlist || wishlist.items.length === 0) return <p className="text-slate-500">Tu wishlist está vacía.</p>
+  if (loading) return <p className="text-neutral-500">Cargando wishlist…</p>
+  if (!wishlist || wishlist.items.length === 0) return <p className="text-neutral-500">Tu wishlist está vacía.</p>
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {wishlist.items.map((item) => (
-        <GlassPanel key={item.id} className="p-4">
-          <Link to={`/products/${item.product.slug}`} className="font-medium text-slate-100 hover:text-cyan-200">
+        <GlassPanel key={item.id} className="p-5">
+          <Link to={`/products/${item.product.slug}`} className="text-xs font-medium uppercase tracking-wide hover:opacity-70">
             {item.product.name}
           </Link>
-          <p className="mt-1 text-sm text-slate-400">${item.product.base_price}</p>
-          <button onClick={() => handleRemove(item.id)} className="mt-2 text-xs text-slate-500 hover:text-rose-300">
+          <p className="mt-1 font-bold">${item.product.base_price}</p>
+          <button type="button" onClick={() => handleRemove(item.id)} className="mt-2 text-xs uppercase tracking-wider text-neutral-500 underline underline-offset-4 hover:text-black">
             Quitar
           </button>
         </GlassPanel>
@@ -162,11 +162,11 @@ export function AccountPage() {
   if (!isAuthenticated || !user) return null
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-16 lg:px-8">
+    <div className="mx-auto max-w-4xl px-4 py-16 lg:px-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Mi cuenta</h1>
-          <p className="mt-1 text-slate-400">
+          <h1 className="font-display text-3xl uppercase tracking-tight">Mi cuenta</h1>
+          <p className="mt-1 text-neutral-600">
             {user.first_name} {user.last_name} · {user.email}
           </p>
         </div>
@@ -181,12 +181,15 @@ export function AccountPage() {
         </GlassButton>
       </div>
 
-      <div className="mt-8 flex gap-2 rounded-xl border border-white/10 bg-white/5 p-1 text-sm font-medium">
+      <div className="mt-8 flex gap-0 border border-neutral-200 text-sm font-medium">
         {(['orders', 'addresses', 'wishlist'] as Tab[]).map((item) => (
           <button
             key={item}
+            type="button"
             onClick={() => setTab(item)}
-            className={`flex-1 rounded-lg py-2 capitalize transition ${tab === item ? 'bg-cyan-300 text-slate-950' : 'text-slate-300 hover:text-white'}`}
+            className={`flex-1 py-2.5 text-xs uppercase tracking-wider transition ${
+              tab === item ? 'bg-black text-white' : 'text-neutral-600 hover:text-black'
+            }`}
           >
             {item === 'orders' ? 'Pedidos' : item === 'addresses' ? 'Direcciones' : 'Wishlist'}
           </button>

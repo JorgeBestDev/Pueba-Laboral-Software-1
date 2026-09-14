@@ -8,9 +8,9 @@ export function CartDrawer() {
 
   return (
     <Drawer open={isDrawerOpen} onClose={closeDrawer} title="Tu carrito">
-      {error && <p className="mb-4 text-sm text-rose-300">{error}</p>}
+      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-slate-400">
+        <div className="flex h-full flex-col items-center justify-center gap-4 text-center text-neutral-500">
           <p>Tu carrito está vacío.</p>
           <GlassButton variant="ghost" onClick={closeDrawer}>
             Seguir explorando
@@ -19,13 +19,14 @@ export function CartDrawer() {
       ) : (
         <ul className="space-y-4">
           {items.map((item) => (
-            <li key={item.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+            <li key={item.id} className="flex items-center justify-between gap-3 border border-neutral-200 p-4">
               <div className="flex-1">
-                <p className="text-sm font-medium text-slate-100">Variante #{item.variant_id}</p>
-                <p className="text-xs text-slate-400">${item.unit_price} c/u</p>
-                <div className="mt-2 flex items-center gap-2">
+                <p className="text-xs font-medium uppercase tracking-wide">Variante #{item.variant_id}</p>
+                <p className="mt-1 text-xs text-neutral-500">${item.unit_price} c/u</p>
+                <div className="mt-3 flex items-center gap-2">
                   <button
-                    className="glass-button h-7 w-7 justify-center border border-white/10 bg-white/5 p-0 text-sm"
+                    type="button"
+                    className="flex h-7 w-7 items-center justify-center border border-neutral-300 text-sm hover:border-black"
                     onClick={() => updateItem(item.id, Math.max(1, item.quantity - 1))}
                     aria-label="Disminuir cantidad"
                   >
@@ -33,7 +34,8 @@ export function CartDrawer() {
                   </button>
                   <span className="w-6 text-center text-sm">{item.quantity}</span>
                   <button
-                    className="glass-button h-7 w-7 justify-center border border-white/10 bg-white/5 p-0 text-sm"
+                    type="button"
+                    className="flex h-7 w-7 items-center justify-center border border-neutral-300 text-sm hover:border-black"
                     onClick={() => updateItem(item.id, item.quantity + 1)}
                     aria-label="Aumentar cantidad"
                   >
@@ -42,10 +44,10 @@ export function CartDrawer() {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <p className="font-semibold text-cyan-100">
+                <p className="font-bold">
                   ${item.unit_price ? (Number(item.unit_price) * item.quantity).toFixed(2) : '0.00'}
                 </p>
-                <button onClick={() => removeItem(item.id)} className="text-xs text-slate-500 hover:text-rose-300">
+                <button type="button" onClick={() => removeItem(item.id)} className="text-xs uppercase tracking-wider text-neutral-500 underline underline-offset-2 hover:text-black">
                   Eliminar
                 </button>
               </div>
@@ -55,10 +57,10 @@ export function CartDrawer() {
       )}
 
       {items.length > 0 && (
-        <div className="mt-6 border-t border-white/10 pt-4">
-          <div className="flex justify-between text-lg font-semibold">
+        <div className="mt-6 border-t border-neutral-200 pt-4">
+          <div className="flex justify-between text-lg font-bold">
             <span>Subtotal</span>
-            <span className="text-cyan-100">${cart?.total}</span>
+            <span>${cart?.total}</span>
           </div>
           <Link to="/checkout" onClick={closeDrawer}>
             <GlassButton className="mt-4 w-full justify-center">Ir a pagar</GlassButton>

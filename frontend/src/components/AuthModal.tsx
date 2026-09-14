@@ -47,18 +47,24 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
 
   return (
     <Modal open={open} onClose={() => { reset(); onClose() }}>
-      <div className="mb-6 flex gap-2 rounded-xl border border-white/10 bg-white/5 p-1 text-sm font-medium">
+      <p className="font-display mb-6 text-xl italic">vokter.</p>
+
+      <div className="mb-6 flex gap-0 border border-neutral-200 text-sm font-medium">
         <button
           type="button"
           onClick={() => setMode('login')}
-          className={`flex-1 rounded-lg py-2 transition ${mode === 'login' ? 'bg-cyan-300 text-slate-950' : 'text-slate-300 hover:text-white'}`}
+          className={`flex-1 py-2.5 text-xs uppercase tracking-wider transition ${
+            mode === 'login' ? 'bg-black text-white' : 'text-neutral-600 hover:text-black'
+          }`}
         >
           Iniciar sesión
         </button>
         <button
           type="button"
           onClick={() => setMode('register')}
-          className={`flex-1 rounded-lg py-2 transition ${mode === 'register' ? 'bg-cyan-300 text-slate-950' : 'text-slate-300 hover:text-white'}`}
+          className={`flex-1 py-2.5 text-xs uppercase tracking-wider transition ${
+            mode === 'register' ? 'bg-black text-white' : 'text-neutral-600 hover:text-black'
+          }`}
         >
           Crear cuenta
         </button>
@@ -86,7 +92,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
-        {error && <p className="text-sm text-rose-300">{error}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
         <GlassButton type="submit" disabled={submitting} className="w-full justify-center">
           {submitting ? 'Procesando…' : mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
         </GlassButton>

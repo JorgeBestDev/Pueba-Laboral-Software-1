@@ -5,9 +5,9 @@ import { getCategories, getFilters, getProductBySlug, getProducts, recordEvent, 
 import { useCart } from '../lib/cart-context'
 import { useWishlist } from '../lib/wishlist-context'
 import { useToast } from '../lib/toast-context'
-import { GlassButton, GlassInput, GlassPanel, Stars } from '../components/ui'
+import { Badge, GlassButton, GlassInput, SectionHeader, Stars } from '../components/ui'
 
-function ProductCard({ product }: { product: Product }) {
+function ProductCard({ product, compact = false }: { product: Product; compact?: boolean }) {
   const { addItem } = useCart()
   const { productIds, toggle } = useWishlist()
   const { push } = useToast()
@@ -17,8 +17,6 @@ function ProductCard({ product }: { product: Product }) {
   async function handleAdd(event: React.MouseEvent) {
     event.preventDefault()
     try {
-      // The catalog list payload omits variants for a lighter response, so resolve
-      // the default variant from the product detail before adding to the cart.
       const variant = product.variants?.[0] ?? (await getProductBySlug(product.slug)).variants?.[0]
       if (!variant) {
         push('Este producto no tiene variantes disponibles', 'error')
@@ -42,38 +40,72 @@ function ProductCard({ product }: { product: Product }) {
 
   return (
     <Link to={`/products/${product.slug}`} className="group block">
-      <div className="relative aspect-[4/5] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-cyan-400/20 via-violet-500/20 to-fuchsia-500/20">
+      <div className={`relative overflow-hidden product-image-bg ${compact ? 'aspect-[3/4]' : 'aspect-[4/5]'}`}>
         {image ? (
-          <img className="h-full w-full object-cover transition duration-500 group-hover:scale-105" src={image.url} alt={image.alt_text ?? product.name} />
+          <img
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            src={image.url}
+            alt={image.alt_text ?? product.name}
+          />
         ) : (
-          <div className="flex h-full items-end p-5">
-            <span className="text-7xl font-black tracking-tighter text-white/10">{product.name.slice(0, 1)}</span>
+          <div className="flex h-full items-center justify-center">
+            <span className="font-display text-6xl text-neutral-300">{product.name.slice(0, 1)}</span>
           </div>
         )}
-        {product.is_featured && <span className="absolute left-4 top-4 rounded-full border border-cyan-200/20 bg-cyan-300/15 px-3 py-1 text-xs font-semibold text-cyan-100">Featured</span>}
-        <GlassButton variant="icon" className="absolute right-4 top-4 h-10 w-10 rounded-full p-0" onClick={handleSave} aria-label="Guardar en wishlist">
+        {product.is_featured && (
+          <span className="absolute left-3 top-3 bg-black px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-wider text-white">
+            Nuevo
+          </span>
+        )}
+        <button
+          type="button"
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center bg-white/90 text-sm opacity-0 transition group-hover:opacity-100"
+          onClick={handleSave}
+          aria-label="Guardar en wishlist"
+        >
           {saved ? '♥' : '♡'}
-        </GlassButton>
-        <GlassButton className="absolute bottom-4 left-4 right-4 opacity-0 transition group-hover:opacity-100" onClick={handleAdd}>
+        </button>
+        <GlassButton
+          className="absolute bottom-3 left-3 right-3 justify-center opacity-0 transition group-hover:opacity-100"
+          onClick={handleAdd}
+        >
           Añadir al carrito
         </GlassButton>
       </div>
-      <div className="mt-4 flex justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{product.brand ?? product.categories[0]?.name ?? 'Collection'}</p>
-          <h3 className="mt-1 font-medium text-slate-100">{product.name}</h3>
-          <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+      <div className="mt-3">
+        <h3 className="text-[0.7rem] font-medium uppercase leading-snug tracking-wide text-black">{product.name}</h3>
+        <p className="mt-1 text-sm font-bold">${product.base_price}</p>
+        {!compact && (
+          <div className="mt-1 flex items-center gap-1 text-xs text-neutral-500">
             <Stars value={product.reviews.average} /> ({product.reviews.count})
           </div>
-        </div>
-        <p className="font-semibold text-cyan-100">${product.base_price}</p>
+        )}
       </div>
     </Link>
   )
 }
 
-export function CatalogPage() {
+function CategoryCard({ category, product }: { category: Category; product?: Product }) {
+  const image = product?.images?.[0]
+
+  return (
+    <Link to={`/#catalog`} onClick={() => window.dispatchEvent(new CustomEvent('vokter:filter-category', { detail: category.slug }))} className="group block">
+      <div className="aspect-[3/4] overflow-hidden product-image-bg">
+        {image ? (
+          <img className="h-full w-full object-cover transition duration-500 group-hover:scale-105" src={image.url} alt={category.name} />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <span className="font-display text-5xl text-neutral-300">{category.name.slice(0, 1)}</span>
+          </div>
+        )}
+      </div>
+    </Link>
+  )
+}
+
+export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus?: boolean; onSearchFocusHandled?: () => void }) {
   const [products, setProducts] = useState<Product[]>([])
+  const [newProducts, setNewProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [brands, setBrands] = useState<string[]>([])
   const [search, setSearch] = useState('')
@@ -86,11 +118,32 @@ export function CatalogPage() {
   const [pages, setPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [newOffset, setNewOffset] = useState(0)
 
   useEffect(() => {
     getCategories().then(setCategories).catch(() => setError('Conecta la API para cargar el catálogo.'))
     getFilters().then((filters) => setBrands(filters.brands)).catch(() => undefined)
+    getProducts({ sort: 'newest', page: 1 })
+      .then((result) => setNewProducts(result.data.slice(0, 8)))
+      .catch(() => undefined)
   }, [])
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const slug = (event as CustomEvent<string>).detail
+      setCategory(slug)
+      setPage(1)
+      document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })
+    }
+    window.addEventListener('vokter:filter-category', handler)
+    return () => window.removeEventListener('vokter:filter-category', handler)
+  }, [])
+
+  useEffect(() => {
+    if (searchFocus && onSearchFocusHandled) {
+      onSearchFocusHandled()
+    }
+  }, [searchFocus, onSearchFocusHandled])
 
   useEffect(() => {
     let cancelled = false
@@ -119,6 +172,7 @@ export function CatalogPage() {
     setPage(1)
     setSearch(trimmed)
     if (trimmed) recordEvent({ event_type: 'search', metadata: { query: trimmed } })
+    document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })
   }
 
   function resetFilters() {
@@ -130,138 +184,225 @@ export function CatalogPage() {
     setPage(1)
   }
 
+  const visibleNew = newProducts.slice(newOffset, newOffset + 4)
+  const canPrevNew = newOffset > 0
+  const canNextNew = newOffset + 4 < newProducts.length
+
   return (
     <>
-      <section className="mx-auto grid max-w-7xl gap-10 px-5 pb-16 pt-20 lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:px-8 lg:pb-24 lg:pt-28">
-        <div>
-          <p className="mb-5 text-xs font-bold uppercase tracking-[0.28em] text-cyan-300">The intelligent marketplace</p>
-          <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.05em] text-white sm:text-7xl">
-            Curated objects for your <span className="text-cyan-200">next chapter.</span>
-          </h1>
-          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-400">
-            A considered collection of products, powered by discovery that feels personal.
-          </p>
-          <form onSubmit={submitSearch} className="mt-8 flex max-w-xl gap-3">
-            <GlassInput
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search products, brands or SKUs..."
-            />
-            <GlassButton type="submit">Search</GlassButton>
-          </form>
-        </div>
-        <GlassPanel className="min-h-72 overflow-hidden p-2 sm:min-h-96">
-          <div className="flex h-full items-end rounded-2xl bg-gradient-to-br from-cyan-300/30 via-violet-500/30 to-fuchsia-500/30 p-7">
-            <div>
-              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs text-cyan-100">Curated drop 01</span>
-              <p className="mt-4 max-w-xs text-3xl font-semibold tracking-tight">Made for the beautifully unfinished.</p>
-            </div>
+      {/* Hero */}
+      <section id="hero" className="mx-auto max-w-[1400px] px-4 py-16 text-center lg:px-8 lg:py-24">
+        <p className="mb-4 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-neutral-500">The intelligent marketplace</p>
+        <h1 className="font-display mx-auto max-w-4xl text-4xl leading-tight tracking-tight sm:text-6xl lg:text-7xl">
+          Curated objects for your <em className="italic">next chapter.</em>
+        </h1>
+        <p className="mx-auto mt-6 max-w-xl text-sm leading-relaxed text-neutral-600">
+          A considered collection of products, powered by discovery that feels personal.
+        </p>
+
+        <div className="mx-auto mt-10 flex max-w-lg flex-wrap items-center justify-center gap-8 text-xs text-neutral-600">
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-2xl">✦</span>
+            <span className="font-medium uppercase tracking-wider">Curated selection</span>
           </div>
-        </GlassPanel>
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-2xl">◈</span>
+            <span className="font-medium uppercase tracking-wider">Precio justo</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-2xl">➤</span>
+            <span className="font-medium uppercase tracking-wider">Envío nacional</span>
+          </div>
+        </div>
+
+        <form onSubmit={submitSearch} className="mx-auto mt-10 flex max-w-md gap-0 border border-neutral-300">
+          <GlassInput
+            id="hero-search"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Search products, brands or SKUs..."
+            className="border-0"
+          />
+          <GlassButton type="submit" className="shrink-0 rounded-none">
+            Search
+          </GlassButton>
+        </form>
       </section>
 
-      <section id="catalog" className="mx-auto grid max-w-7xl gap-8 px-5 pb-24 lg:grid-cols-[240px_1fr] lg:px-8">
-        <aside>
-          <GlassPanel className="sticky top-24 p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Filters</h2>
-              <button onClick={resetFilters} className="text-xs text-cyan-300 hover:text-cyan-100">
-                Clear
+      {/* Featured categories */}
+      {categories.length > 0 && (
+        <section className="mx-auto max-w-[1400px] px-4 py-12 lg:px-8">
+          <SectionHeader title="Categorías destacadas" italicWord="destacadas" viewAllHref="#catalog" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {categories.slice(0, 3).map((cat, index) => (
+              <CategoryCard key={cat.id} category={cat} product={products[index]} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Split hero banners */}
+      <section className="grid sm:grid-cols-2">
+        <div className="relative flex min-h-[420px] items-end justify-end bg-neutral-900 p-8 lg:min-h-[520px] lg:p-12">
+          <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 to-black opacity-90" />
+          <div className="relative text-right text-white">
+            <p className="font-display text-3xl italic lg:text-4xl">Best Sellers</p>
+            <a href="#catalog" className="pill-btn mt-4 inline-flex">
+              Ver más
+            </a>
+          </div>
+        </div>
+        <div className="relative flex min-h-[420px] items-end justify-end bg-neutral-700 p-8 lg:min-h-[520px] lg:p-12">
+          <div className="absolute inset-0 bg-gradient-to-bl from-neutral-600 to-neutral-900 opacity-90" />
+          <div className="relative text-right text-white">
+            <p className="font-display text-3xl italic lg:text-4xl">Total Looks</p>
+            <a href="#catalog" className="pill-btn mt-4 inline-flex">
+              Ver más
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Lo nuevo */}
+      {newProducts.length > 0 && (
+        <section id="new" className="mx-auto max-w-[1400px] px-4 py-16 lg:px-8">
+          <SectionHeader
+            title="Lo nuevo"
+            viewAllHref="#catalog"
+            onPrev={canPrevNew ? () => setNewOffset((o) => Math.max(0, o - 4)) : undefined}
+            onNext={canNextNew ? () => setNewOffset((o) => o + 4) : undefined}
+          />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {visibleNew.map((product) => (
+              <ProductCard key={product.id} product={product} compact />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Curated drop promo */}
+      <section className="mx-auto max-w-[1400px] px-4 py-8 lg:px-8">
+        <div className="flex flex-col items-start justify-between gap-6 border border-neutral-200 bg-neutral-50 p-8 lg:flex-row lg:items-center lg:p-12">
+          <div>
+            <Badge>Curated drop 01</Badge>
+            <p className="font-display mt-4 max-w-md text-2xl leading-snug lg:text-3xl">
+              Made for the beautifully <em className="italic">unfinished.</em>
+            </p>
+          </div>
+          <a href="#catalog">
+            <GlassButton>Explore the edit</GlassButton>
+          </a>
+        </div>
+      </section>
+
+      {/* Full catalog */}
+      <section id="catalog" className="mx-auto max-w-[1400px] px-4 pb-24 pt-8 lg:px-8">
+        <SectionHeader title="All products" viewAllHref="#catalog" />
+
+        {/* Horizontal filters */}
+        <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-neutral-200 pb-6">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => { setCategory(''); setPage(1) }}
+              className={`px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-wider transition ${
+                !category ? 'bg-black text-white' : 'text-neutral-600 hover:text-black'
+              }`}
+            >
+              All
+            </button>
+            {categories.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => { setCategory(item.slug); setPage(1) }}
+                className={`px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-wider transition ${
+                  category === item.slug ? 'bg-black text-white' : 'text-neutral-600 hover:text-black'
+                }`}
+              >
+                {item.name}
               </button>
-            </div>
-            <label className="mt-7 block text-xs uppercase tracking-widest text-slate-500">Category</label>
-            <div className="mt-3 space-y-2">
-              {categories.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setCategory(item.slug)
-                    setPage(1)
-                  }}
-                  className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition ${
-                    category === item.slug ? 'bg-cyan-300/15 text-cyan-200' : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  {item.name}
-                </button>
-              ))}
-            </div>
-            <label className="mt-7 block text-xs uppercase tracking-widest text-slate-500">Brand</label>
+            ))}
+          </div>
+
+          <div className="ml-auto flex flex-wrap items-center gap-3">
             <select
               value={brand}
-              onChange={(event) => {
-                setBrand(event.target.value)
-                setPage(1)
-              }}
-              className="glass-input mt-3"
+              onChange={(event) => { setBrand(event.target.value); setPage(1) }}
+              className="glass-input w-auto py-2 text-xs"
             >
               <option value="">All brands</option>
               {brands.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
+                <option key={item} value={item}>{item}</option>
               ))}
             </select>
-            <label className="mt-6 flex cursor-pointer items-center gap-3 text-sm text-slate-300">
-              <input
-                checked={available}
-                onChange={(event) => {
-                  setAvailable(event.target.checked)
-                  setPage(1)
-                }}
-                type="checkbox"
-                className="accent-cyan-300"
-              />{' '}
-              In stock only
-            </label>
-          </GlassPanel>
-        </aside>
-        <div>
-          <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <p className="text-sm text-slate-500">Discover the edit</p>
-              <h2 className="mt-1 text-3xl font-semibold tracking-tight">All products</h2>
-            </div>
             <select
               value={sort}
-              onChange={(event) => {
-                setSort(event.target.value)
-                setPage(1)
-              }}
-              className="glass-input w-auto"
+              onChange={(event) => { setSort(event.target.value); setPage(1) }}
+              className="glass-input w-auto py-2 text-xs"
             >
               <option value="newest">Newest</option>
               <option value="price_asc">Price: low to high</option>
               <option value="price_desc">Price: high to low</option>
               <option value="name">Name</option>
             </select>
-          </div>
-          {error && <GlassPanel className="mb-6 border-rose-300/20 bg-rose-400/10 p-4 text-sm text-rose-200">{error}</GlassPanel>}
-          {loading ? (
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {[1, 2, 3].map((item) => (
-                <div key={item} className="aspect-[4/5] animate-pulse rounded-3xl bg-white/5" />
-              ))}
-            </div>
-          ) : products.length ? (
-            <div className="grid gap-x-5 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          ) : (
-            <GlassPanel className="p-10 text-center text-slate-400">No encontramos productos con esos filtros.</GlassPanel>
-          )}
-          <div className="mt-10 flex justify-center gap-2">
-            {Array.from({ length: pages }, (_, index) => index + 1)
-              .slice(0, 5)
-              .map((item) => (
-                <GlassButton key={item} variant={item === page ? 'primary' : 'ghost'} onClick={() => setPage(item)} className="h-10 w-10 justify-center p-0">
-                  {item}
-                </GlassButton>
-              ))}
+            <label className="flex cursor-pointer items-center gap-2 text-xs uppercase tracking-wider text-neutral-600">
+              <input
+                checked={available}
+                onChange={(event) => { setAvailable(event.target.checked); setPage(1) }}
+                type="checkbox"
+                className="accent-black"
+              />
+              In stock
+            </label>
+            {(search || category || brand || available) && (
+              <button type="button" onClick={resetFilters} className="text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-70">
+                Clear
+              </button>
+            )}
           </div>
         </div>
+
+        {error && (
+          <div className="mb-6 border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
+        )}
+
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="aspect-[3/4] animate-pulse bg-neutral-100" />
+            ))}
+          </div>
+        ) : products.length ? (
+          <div className="grid gap-x-4 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="border border-neutral-200 p-16 text-center text-neutral-500">
+            No encontramos productos con esos filtros.
+          </div>
+        )}
+
+        {pages > 1 && (
+          <div className="mt-12 flex justify-center gap-2">
+            {Array.from({ length: pages }, (_, index) => index + 1)
+              .slice(0, 7)
+              .map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setPage(item)}
+                  className={`flex h-10 w-10 items-center justify-center text-sm font-medium transition ${
+                    item === page ? 'bg-black text-white' : 'border border-neutral-300 hover:border-black'
+                  }`}
+                >
+                  {item}
+                </button>
+              ))}
+          </div>
+        )}
       </section>
     </>
   )
