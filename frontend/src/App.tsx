@@ -142,10 +142,10 @@ function App() {
   if (loading) return null
 
   return (
-    <div className="min-h-screen bg-white text-black">
+    <div className="flex min-h-screen flex-col bg-white text-black">
       <Header onOpenAuth={() => setAuthOpen(true)} onOpenSearch={handleOpenSearch} />
 
-      <main>
+      <main className="flex-1">
         <Routes>
           <Route path="/" element={<CatalogPage searchFocus={searchFocus} onSearchFocusHandled={() => setSearchFocus(false)} />} />
           <Route path="/products/:slug" element={<ProductDetailPage />} />
