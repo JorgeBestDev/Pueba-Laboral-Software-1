@@ -338,7 +338,7 @@ El panel vive en `/admin` dentro del frontend. Requiere credenciales de usuario 
 | Campo | Valor |
 |---|---|
 | Email | `admin@vokter.com` |
-| Contraseña | `admin123` |
+| Contraseña | `admin-password` |
 
 El login incluye un **captcha matemático** anti-bot generado internamente (no requiere servicios externos).
 
