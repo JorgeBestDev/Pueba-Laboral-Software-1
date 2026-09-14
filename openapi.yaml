@@ -1,0 +1,1495 @@
+openapi: 3.0.3
+info:
+  title: Vokter API
+  version: 1.0.0
+  description: API de comercio electrónico para clientes web y móvil.
+servers:
+  - url: http://localhost:5000/api/v1
+tags:
+  - name: Health
+  - name: Identity
+  - name: Catalog
+  - name: Cart
+  - name: Orders
+  - name: Users
+  - name: Social
+  - name: Wishlist
+  - name: AI
+  - name: Administration
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Check API health
+      responses:
+        '200':
+          description: API is available
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Health'
+
+  /auth/register:
+    post:
+      tags: [Identity]
+      summary: Register a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201': {$ref: '#/components/responses/AuthSuccess'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409': {$ref: '#/components/responses/ConflictError'}
+
+  /auth/login:
+    post:
+      tags: [Identity]
+      summary: Authenticate a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200': {$ref: '#/components/responses/AuthSuccess'}
+        '401': {$ref: '#/components/responses/UnauthorizedError'}
+
+  /auth/me:
+    get:
+      tags: [Identity]
+      summary: Get the authenticated user
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - {name: per_page, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: status, in: query, schema: {type: string, enum: [pending, paid, processing, shipped, completed, cancelled]}}
+      responses:
+        '200':
+          description: Authenticated user
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/User'}
+        '401': {$ref: '#/components/responses/UnauthorizedError'}
+
+    patch:
+      tags: [Identity]
+      summary: Update the authenticated profile
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdateRequest'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/User'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+
+  /auth/me/password:
+    patch:
+      tags: [Identity]
+      summary: Change the authenticated user's password
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+      responses:
+        '204': {description: Password changed}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/UnauthorizedError'}
+
+  /auth/refresh:
+    post:
+      tags: [Identity]
+      summary: Rotate a refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Rotated tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/TokenPair'}
+        '401': {$ref: '#/components/responses/UnauthorizedError'}
+
+  /auth/logout:
+    post:
+      tags: [Identity]
+      summary: Revoke a refresh session
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '204': {description: Refresh session revoked}
+        '401': {$ref: '#/components/responses/UnauthorizedError'}
+
+  /catalog/products:
+    get:
+      tags: [Catalog]
+      summary: List active products
+      parameters:
+        - {name: q, in: query, schema: {type: string}}
+        - {name: featured, in: query, schema: {type: boolean, default: false}}
+        - {name: category, in: query, schema: {type: string}}
+        - {name: brand, in: query, schema: {type: string}}
+        - {name: min_price, in: query, schema: {type: number, format: double, minimum: 0}}
+        - {name: max_price, in: query, schema: {type: number, format: double, minimum: 0}}
+        - {name: available, in: query, schema: {type: boolean, default: false}}
+        - {name: sort, in: query, schema: {type: string, enum: [newest, price_asc, price_desc, name], default: newest}}
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - {name: per_page, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+      responses:
+        '200':
+          description: Paginated product list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Product'}
+                  meta: {$ref: '#/components/schemas/PaginationMeta'}
+
+  /catalog/products/{product_id}:
+    get:
+      tags: [Catalog]
+      summary: Get a product with variants and images
+      parameters:
+        - {$ref: '#/components/parameters/ProductId'}
+      responses:
+        '200':
+          description: Product detail
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/ProductDetail'}
+        '404': {$ref: '#/components/responses/NotFoundError'}
+
+  /catalog/products/slug/{slug}:
+    get:
+      tags: [Catalog]
+      summary: Get a product by slug
+      parameters:
+        - {name: slug, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Product detail
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/ProductDetail'}
+        '404': {$ref: '#/components/responses/NotFoundError'}
+
+  /catalog/filters:
+    get:
+      tags: [Catalog]
+      summary: Get available catalog filters
+      responses:
+        '200':
+          description: Available brands and price range
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [brands, price]
+                    properties:
+                      brands:
+                        type: array
+                        items: {type: string}
+                      price:
+                        type: object
+                        properties:
+                          min: {type: string, nullable: true}
+                          max: {type: string, nullable: true}
+
+  /catalog/categories:
+    get:
+      tags: [Catalog]
+      summary: List active categories
+      responses:
+        '200':
+          description: Category list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Category'}
+
+  /carts:
+    post:
+      tags: [Cart]
+      summary: Create or retrieve a cart
+      description: Authenticated requests use the current user. Anonymous requests use X-Cart-Session or session_key.
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - {$ref: '#/components/parameters/CartSessionHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCartRequest'
+      responses:
+        '201':
+          description: Cart
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Cart'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/UnauthorizedError'}
+
+  /carts/current:
+    get:
+      tags: [Cart]
+      summary: Get the authenticated user's active cart
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Current cart
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Cart'}
+        '401': {$ref: '#/components/responses/UnauthorizedError'}
+
+  /carts/merge:
+    post:
+      tags: [Cart]
+      summary: Merge an anonymous cart into the authenticated cart
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MergeCartRequest'
+      responses:
+        '200':
+          description: Merged cart
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Cart'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409': {$ref: '#/components/responses/ConflictError'}
+
+  /carts/{cart_id}:
+    get:
+      tags: [Cart]
+      summary: Get a cart
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - {$ref: '#/components/parameters/CartId'}
+        - {$ref: '#/components/parameters/CartSessionHeader'}
+      responses:
+        '200':
+          description: Cart
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Cart'}
+        '401': {$ref: '#/components/responses/UnauthorizedError'}
+        '404': {$ref: '#/components/responses/NotFoundError'}
+
+  /carts/{cart_id}/items:
+    post:
+      tags: [Cart]
+      summary: Add a variant to a cart
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - {$ref: '#/components/parameters/CartId'}
+        - {$ref: '#/components/parameters/CartSessionHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemRequest'
+      responses:
+        '201':
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Cart'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409': {$ref: '#/components/responses/ConflictError'}
+    delete:
+      tags: [Cart]
+      summary: Remove all items from a cart
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - {$ref: '#/components/parameters/CartId'}
+        - {$ref: '#/components/parameters/CartSessionHeader'}
+      responses:
+        '200':
+          description: Empty cart
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Cart'}
+
+  /carts/{cart_id}/items/{item_id}:
+    patch:
+      tags: [Cart]
+      summary: Update cart item quantity
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - {$ref: '#/components/parameters/CartId'}
+        - {$ref: '#/components/parameters/ItemId'}
+        - {$ref: '#/components/parameters/CartSessionHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartItemRequest'
+      responses:
+        '200':
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Cart'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409': {$ref: '#/components/responses/ConflictError'}
+    delete:
+      tags: [Cart]
+      summary: Remove a cart item
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - {$ref: '#/components/parameters/CartId'}
+        - {$ref: '#/components/parameters/ItemId'}
+        - {$ref: '#/components/parameters/CartSessionHeader'}
+      responses:
+        '200':
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Cart'}
+
+  /orders:
+    get:
+      tags: [Orders]
+      summary: List the authenticated user's orders
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Order list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Order'}
+
+  /orders/checkout:
+    post:
+      tags: [Orders]
+      summary: Create an order from an active cart
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '201':
+          description: Created or previously created order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Order'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '401': {$ref: '#/components/responses/UnauthorizedError'}
+        '409': {$ref: '#/components/responses/ConflictError'}
+
+  /orders/{order_id}:
+    get:
+      tags: [Orders]
+      summary: Get an owned order
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/OrderId'}
+      responses:
+        '200':
+          description: Order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Order'}
+        '404': {$ref: '#/components/responses/NotFoundError'}
+
+  /orders/{order_id}/cancel:
+    post:
+      tags: [Orders]
+      summary: Cancel an owned pending or paid order
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/OrderId'}
+      responses:
+        '200':
+          description: Cancelled order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Order'}
+        '409': {$ref: '#/components/responses/ConflictError'}
+
+  /orders/{order_id}/status:
+    patch:
+      tags: [Orders]
+      summary: Update order status
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/OrderId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderStatusRequest'
+      responses:
+        '200': {$ref: '#/components/responses/OrderSuccess'}
+        '403': {$ref: '#/components/responses/ForbiddenError'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+
+  /orders/{order_id}/payment:
+    patch:
+      tags: [Orders]
+      summary: Update payment status
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/OrderId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentStatusRequest'
+      responses:
+        '200': {$ref: '#/components/responses/OrderSuccess'}
+        '403': {$ref: '#/components/responses/ForbiddenError'}
+
+  /orders/{order_id}/shipment:
+    patch:
+      tags: [Orders]
+      summary: Update shipment status
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/OrderId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShipmentStatusRequest'
+      responses:
+        '200': {$ref: '#/components/responses/OrderSuccess'}
+        '403': {$ref: '#/components/responses/ForbiddenError'}
+
+  /users/me/addresses:
+    get:
+      tags: [Users]
+      summary: List the authenticated user's addresses
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Address list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Address'}
+    post:
+      tags: [Users]
+      summary: Create an address
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+      responses:
+        '201': {$ref: '#/components/responses/AddressSuccess'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+
+  /users/me/addresses/{address_id}:
+    patch:
+      tags: [Users]
+      summary: Update an address
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/AddressId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressUpdateRequest'
+      responses:
+        '200': {$ref: '#/components/responses/AddressSuccess'}
+        '404': {$ref: '#/components/responses/NotFoundError'}
+    delete:
+      tags: [Users]
+      summary: Delete an address
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/AddressId'}
+      responses:
+        '204': {description: Address deleted}
+        '404': {$ref: '#/components/responses/NotFoundError'}
+
+  /social/reviews:
+    post:
+      tags: [Social]
+      summary: Create a verified purchase review
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReviewRequest'
+      responses:
+        '201': {$ref: '#/components/responses/ReviewSuccess'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+        '409': {$ref: '#/components/responses/ConflictError'}
+
+  /social/products/{product_id}/reviews:
+    get:
+      tags: [Social]
+      summary: List product reviews
+      parameters:
+        - {$ref: '#/components/parameters/ProductId'}
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - {name: per_page, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 10}}
+      responses:
+        '200':
+          description: Product reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Review'}
+        '404': {$ref: '#/components/responses/NotFoundError'}
+
+  /social/reviews/{review_id}:
+    patch:
+      tags: [Social]
+      summary: Update an owned review
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/ReviewId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewUpdateRequest'
+      responses:
+        '200': {$ref: '#/components/responses/ReviewSuccess'}
+        '404': {$ref: '#/components/responses/NotFoundError'}
+    delete:
+      tags: [Social]
+      summary: Delete an owned review
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/ReviewId'}
+      responses:
+        '204': {description: Review deleted}
+        '404': {$ref: '#/components/responses/NotFoundError'}
+
+  /wishlist:
+    get:
+      tags: [Wishlist]
+      summary: Get the authenticated user's wishlist
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Wishlist
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Wishlist'}
+
+  /wishlist/items:
+    post:
+      tags: [Wishlist]
+      summary: Add a product to the wishlist
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddWishlistItemRequest'
+      responses:
+        '201':
+          description: Updated wishlist
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Wishlist'}
+        '404': {$ref: '#/components/responses/NotFoundError'}
+
+  /wishlist/items/{item_id}:
+    delete:
+      tags: [Wishlist]
+      summary: Remove an item from the wishlist
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/ItemId'}
+      responses:
+        '200':
+          description: Updated wishlist
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/Wishlist'}
+        '404': {$ref: '#/components/responses/NotFoundError'}
+
+  /ai/events:
+    post:
+      tags: [AI]
+      summary: Record a behavioral event
+      security:
+        - bearerAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIEventRequest'
+      responses:
+        '201':
+          description: Event recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/AIEvent'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+
+  /ai/interactions:
+    post:
+      tags: [AI]
+      summary: Register an AI interaction
+      security:
+        - bearerAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIInteractionRequest'
+      responses:
+        '201':
+          description: Interaction registered
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {$ref: '#/components/schemas/AIInteraction'}
+        '400': {$ref: '#/components/responses/ValidationError'}
+
+  /admin/catalog/categories:
+    post:
+      tags: [Administration]
+      summary: Create a category
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CategoryRequest'}
+      responses:
+        '201': {$ref: '#/components/responses/CategorySuccess'}
+        '403': {$ref: '#/components/responses/ForbiddenError'}
+  /admin/catalog/categories/{category_id}:
+    patch:
+      tags: [Administration]
+      summary: Update a category
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/CategoryId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CategoryUpdateRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/CategorySuccess'}
+        '403': {$ref: '#/components/responses/ForbiddenError'}
+    delete:
+      tags: [Administration]
+      summary: Deactivate a category
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/CategoryId'}
+      responses:
+        '200': {$ref: '#/components/responses/CategorySuccess'}
+        '403': {$ref: '#/components/responses/ForbiddenError'}
+  /admin/catalog/products:
+    post:
+      tags: [Administration]
+      summary: Create a product
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProductRequest'}
+      responses:
+        '201': {$ref: '#/components/responses/ProductDetailSuccess'}
+        '403': {$ref: '#/components/responses/ForbiddenError'}
+  /admin/catalog/products/{product_id}:
+    patch:
+      tags: [Administration]
+      summary: Update a product
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/ProductId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProductUpdateRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/ProductDetailSuccess'}
+        '403': {$ref: '#/components/responses/ForbiddenError'}
+    delete:
+      tags: [Administration]
+      summary: Deactivate a product and its variants
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/ProductId'}
+      responses:
+        '200': {$ref: '#/components/responses/ProductDetailSuccess'}
+        '403': {$ref: '#/components/responses/ForbiddenError'}
+  /admin/catalog/products/{product_id}/variants:
+    post:
+      tags: [Administration]
+      summary: Create a product variant
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/ProductId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/VariantRequest'}
+      responses:
+        '201': {$ref: '#/components/responses/VariantSuccess'}
+        '403': {$ref: '#/components/responses/ForbiddenError'}
+  /admin/catalog/variants/{variant_id}:
+    patch:
+      tags: [Administration]
+      summary: Update a variant and inventory
+      security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/VariantId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/VariantUpdateRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/VariantSuccess'}
+        '403': {$ref: '#/components/responses/ForbiddenError'}
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ProductId:
+      name: product_id
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    CategoryId:
+      name: category_id
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    VariantId:
+      name: variant_id
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    CartId:
+      name: cart_id
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    ItemId:
+      name: item_id
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    OrderId:
+      name: order_id
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    AddressId:
+      name: address_id
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    ReviewId:
+      name: review_id
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+    CartSessionHeader:
+      name: X-Cart-Session
+      in: header
+      required: false
+      schema: {type: string, maxLength: 100}
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 128}
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, first_name, last_name]
+      properties:
+        email: {type: string, format: email, maxLength: 255}
+        password: {type: string, format: password, minLength: 8}
+        first_name: {type: string, maxLength: 100}
+        last_name: {type: string, maxLength: 100}
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: {type: string, format: email, maxLength: 255}
+        password: {type: string, format: password}
+    ProfileUpdateRequest:
+      type: object
+      properties:
+        email: {type: string, format: email, maxLength: 255}
+        first_name: {type: string, maxLength: 100}
+        last_name: {type: string, maxLength: 100}
+    PasswordChangeRequest:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password: {type: string, format: password}
+        new_password: {type: string, format: password, minLength: 8}
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: {type: string}
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token]
+      properties:
+        access_token: {type: string}
+        refresh_token: {type: string}
+    User:
+      type: object
+      required: [id, email, first_name, last_name, role, is_active]
+      properties:
+        id: {type: integer}
+        email: {type: string, format: email}
+        first_name: {type: string}
+        last_name: {type: string}
+        role: {type: string, enum: [customer, admin]}
+        is_active: {type: boolean}
+    Health:
+      type: object
+      required: [status, service, version]
+      properties:
+        status: {type: string, example: ok}
+        service: {type: string, example: vokter-api}
+        version: {type: string, example: v1}
+    Category:
+      type: object
+      required: [id, name, slug, is_active]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        slug: {type: string}
+        description: {type: string, nullable: true}
+        is_active: {type: boolean}
+    Product:
+      type: object
+      required: [id, name, slug, base_price, is_active, is_featured, categories]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        slug: {type: string}
+        description: {type: string, nullable: true}
+        brand: {type: string, nullable: true}
+        base_price: {type: string, pattern: '^\d+\.\d{2}$'}
+        is_active: {type: boolean}
+        is_featured: {type: boolean}
+        categories:
+          type: array
+          items: {$ref: '#/components/schemas/Category'}
+    ProductDetail:
+      allOf:
+        - {$ref: '#/components/schemas/Product'}
+        - type: object
+          required: [images, variants]
+          properties:
+            images:
+              type: array
+              items: {$ref: '#/components/schemas/ProductImage'}
+            variants:
+              type: array
+              items: {$ref: '#/components/schemas/ProductVariant'}
+    ProductRequest:
+      type: object
+      required: [name, slug, base_price]
+      properties:
+        name: {type: string, maxLength: 180}
+        slug: {type: string, maxLength: 200}
+        description: {type: string, nullable: true}
+        brand: {type: string, nullable: true}
+        base_price: {type: string, pattern: '^\d+(\.\d{1,2})?$'}
+        is_active: {type: boolean, default: true}
+        is_featured: {type: boolean, default: false}
+        category_ids:
+          type: array
+          items: {type: integer, minimum: 1}
+    ProductUpdateRequest:
+      type: object
+      properties:
+        name: {type: string, maxLength: 180}
+        slug: {type: string, maxLength: 200}
+        description: {type: string, nullable: true}
+        brand: {type: string, nullable: true}
+        base_price: {type: string, pattern: '^\d+(\.\d{1,2})?$'}
+        is_active: {type: boolean}
+        is_featured: {type: boolean}
+        category_ids:
+          type: array
+          items: {type: integer, minimum: 1}
+    CategoryRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        name: {type: string, maxLength: 100}
+        slug: {type: string, maxLength: 120}
+        description: {type: string, nullable: true}
+        is_active: {type: boolean, default: true}
+    CategoryUpdateRequest:
+      type: object
+      properties:
+        name: {type: string, maxLength: 100}
+        slug: {type: string, maxLength: 120}
+        description: {type: string, nullable: true}
+        is_active: {type: boolean}
+    VariantRequest:
+      type: object
+      required: [sku, name, price, stock_quantity]
+      properties:
+        sku: {type: string, maxLength: 80}
+        name: {type: string, maxLength: 120}
+        price: {type: string, pattern: '^\d+(\.\d{1,2})?$'}
+        stock_quantity: {type: integer, minimum: 0}
+        is_active: {type: boolean, default: true}
+    VariantUpdateRequest:
+      type: object
+      properties:
+        sku: {type: string, maxLength: 80}
+        name: {type: string, maxLength: 120}
+        price: {type: string, pattern: '^\d+(\.\d{1,2})?$'}
+        stock_quantity: {type: integer, minimum: 0}
+        is_active: {type: boolean}
+    ProductImage:
+      type: object
+      required: [id, url, sort_order]
+      properties:
+        id: {type: integer}
+        url: {type: string, format: uri}
+        alt_text: {type: string, nullable: true}
+        sort_order: {type: integer}
+    ProductVariant:
+      type: object
+      required: [id, sku, name, price, stock_quantity, is_active]
+      properties:
+        id: {type: integer}
+        sku: {type: string}
+        name: {type: string}
+        price: {type: string, pattern: '^\d+\.\d{2}$'}
+        stock_quantity: {type: integer, minimum: 0}
+        is_active: {type: boolean}
+    Cart:
+      type: object
+      required: [id, user_id, session_key, status, items, total]
+      properties:
+        id: {type: integer}
+        user_id: {type: integer, nullable: true}
+        session_key: {type: string, nullable: true}
+        status: {type: string, enum: [active, checked_out]}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/CartItem'}
+        total: {type: string, pattern: '^\d+\.\d{2}$'}
+    CartItem:
+      type: object
+      required: [id, variant_id, quantity, unit_price]
+      properties:
+        id: {type: integer}
+        variant_id: {type: integer}
+        quantity: {type: integer, minimum: 1}
+        unit_price: {type: string, pattern: '^\d+\.\d{2}$'}
+    CreateCartRequest:
+      type: object
+      properties:
+        session_key: {type: string, maxLength: 100}
+    MergeCartRequest:
+      type: object
+      required: [session_key]
+      properties:
+        session_key: {type: string, minLength: 1, maxLength: 100}
+    AddCartItemRequest:
+      type: object
+      required: [variant_id]
+      properties:
+        variant_id: {type: integer, minimum: 1}
+        quantity: {type: integer, minimum: 1, default: 1}
+    UpdateCartItemRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity: {type: integer, minimum: 1}
+    CheckoutRequest:
+      type: object
+      required: [cart_id, shipping_address]
+      properties:
+        cart_id: {type: integer, minimum: 1}
+        address_id: {type: integer, minimum: 1, nullable: true}
+        shipping_address: {type: string, minLength: 1, maxLength: 500}
+        payment_method: {type: string, enum: [card, paypal, cash_on_delivery], default: card}
+    Order:
+      type: object
+      required: [id, user_id, status, total, shipping_address, items, status_history, payment, shipment]
+      properties:
+        id: {type: integer}
+        user_id: {type: integer}
+        status: {type: string, enum: [pending, paid, processing, shipped, completed, cancelled]}
+        total: {type: string, pattern: '^\d+\.\d{2}$'}
+        shipping_address: {type: string}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/OrderItem'}
+        status_history:
+          type: array
+          items: {$ref: '#/components/schemas/OrderStatusHistory'}
+        payment: {$ref: '#/components/schemas/Payment'}
+        shipment: {$ref: '#/components/schemas/Shipment'}
+    OrderItem:
+      type: object
+      required: [id, variant_id, product_name, quantity, unit_price]
+      properties:
+        id: {type: integer}
+        variant_id: {type: integer}
+        product_name: {type: string}
+        quantity: {type: integer, minimum: 1}
+        unit_price: {type: string, pattern: '^\d+\.\d{2}$'}
+    OrderStatusHistory:
+      type: object
+      required: [status, created_at]
+      properties:
+        status: {type: string, enum: [pending, paid, processing, shipped, completed, cancelled]}
+        note: {type: string, nullable: true}
+        created_at: {type: string, format: date-time}
+    Payment:
+      type: object
+      required: [id, status, method, amount, provider, provider_reference]
+      properties:
+        id: {type: integer}
+        status: {type: string, enum: [pending, authorized, paid, failed, refunded]}
+        method: {type: string, enum: [card, paypal, cash_on_delivery]}
+        amount: {type: string, pattern: '^\d+\.\d{2}$'}
+        provider: {type: string, nullable: true}
+        provider_reference: {type: string, nullable: true}
+    Shipment:
+      type: object
+      required: [id, status, tracking_number, carrier]
+      properties:
+        id: {type: integer}
+        status: {type: string, enum: [pending, preparing, shipped, delivered, returned]}
+        tracking_number: {type: string, nullable: true}
+        carrier: {type: string, nullable: true}
+    OrderStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: {type: string, enum: [pending, paid, processing, shipped, completed, cancelled]}
+    PaymentStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: {type: string, enum: [pending, authorized, paid, failed, refunded]}
+    ShipmentStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: {type: string, enum: [pending, preparing, shipped, delivered, returned]}
+        tracking_number: {type: string, maxLength: 120, nullable: true}
+        carrier: {type: string, maxLength: 100, nullable: true}
+    Address:
+      type: object
+      required: [id, label, street, city, state, postal_code, country, is_default]
+      properties:
+        id: {type: integer}
+        label: {type: string}
+        street: {type: string}
+        city: {type: string}
+        state: {type: string}
+        postal_code: {type: string}
+        country: {type: string}
+        is_default: {type: boolean}
+    AddressRequest:
+      type: object
+      required: [label, street, city, state, postal_code, country]
+      properties:
+        label: {type: string}
+        street: {type: string}
+        city: {type: string}
+        state: {type: string}
+        postal_code: {type: string}
+        country: {type: string}
+        is_default: {type: boolean, default: false}
+    AddressUpdateRequest:
+      type: object
+      properties:
+        label: {type: string}
+        street: {type: string}
+        city: {type: string}
+        state: {type: string}
+        postal_code: {type: string}
+        country: {type: string}
+        is_default: {type: boolean}
+    Review:
+      type: object
+      required: [id, user_id, product_id, rating, is_verified_purchase]
+      properties:
+        id: {type: integer}
+        user_id: {type: integer}
+        product_id: {type: integer}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        title: {type: string, nullable: true}
+        content: {type: string, nullable: true}
+        is_verified_purchase: {type: boolean}
+    CreateReviewRequest:
+      type: object
+      required: [product_id, rating]
+      properties:
+        product_id: {type: integer, minimum: 1}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        title: {type: string, nullable: true}
+        content: {type: string, nullable: true}
+    ReviewUpdateRequest:
+      type: object
+      properties:
+        rating: {type: integer, minimum: 1, maximum: 5}
+        title: {type: string, nullable: true}
+        content: {type: string, nullable: true}
+    Wishlist:
+      type: object
+      required: [id, name, items]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/WishlistItem'}
+    WishlistItem:
+      type: object
+      required: [id, product]
+      properties:
+        id: {type: integer}
+        product: {$ref: '#/components/schemas/Product'}
+    AddWishlistItemRequest:
+      type: object
+      required: [product_id]
+      properties:
+        product_id: {type: integer, minimum: 1}
+    AIEventRequest:
+      type: object
+      required: [event_type]
+      properties:
+        event_type: {type: string, enum: [view_product, search, add_to_cart, purchase, review]}
+        user_id: {type: integer, nullable: true}
+        product_id: {type: integer, nullable: true}
+        metadata: {type: object, additionalProperties: true, nullable: true}
+        session_key: {type: string, maxLength: 100, nullable: true}
+    AIEvent:
+      type: object
+      required: [id, event_type]
+      properties:
+        id: {type: integer}
+        event_type: {type: string}
+    AIInteractionRequest:
+      type: object
+      required: [use_case, prompt]
+      properties:
+        user_id: {type: integer, nullable: true}
+        use_case: {type: string}
+        prompt: {type: string}
+        provider: {type: string, nullable: true}
+        model: {type: string, nullable: true}
+    AIInteraction:
+      type: object
+      required: [id, status]
+      properties:
+        id: {type: integer}
+        status: {type: string, example: pending}
+    PaginationMeta:
+      type: object
+      required: [page, per_page, count, total, pages]
+      properties:
+        page: {type: integer}
+        per_page: {type: integer}
+        count: {type: integer}
+        total: {type: integer}
+        pages: {type: integer}
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string}
+            message: {type: string}
+            request_id: {type: string, format: uuid, nullable: true}
+
+  responses:
+    AuthSuccess:
+      description: Authenticated user and token pair
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                allOf:
+                  - {$ref: '#/components/schemas/TokenPair'}
+                  - type: object
+                    required: [user]
+                    properties:
+                      user: {$ref: '#/components/schemas/User'}
+    OrderSuccess:
+      description: Order response
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: {$ref: '#/components/schemas/Order'}
+    AddressSuccess:
+      description: Address response
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: {$ref: '#/components/schemas/Address'}
+    ReviewSuccess:
+      description: Review response
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: {$ref: '#/components/schemas/Review'}
+    CategorySuccess:
+      description: Category response
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: {$ref: '#/components/schemas/Category'}
+    ProductDetailSuccess:
+      description: Product detail response
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: {$ref: '#/components/schemas/ProductDetail'}
+    VariantSuccess:
+      description: Product variant response
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: {$ref: '#/components/schemas/ProductVariant'}
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    UnauthorizedError:
+      description: Authentication required or token invalid
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    ConflictError:
+      description: Business or data conflict
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}

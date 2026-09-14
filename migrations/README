@@ -1,0 +1,10 @@
+This directory is managed by Flask-Migrate.
+
+Initialize the first migration with:
+
+    flask db init
+    flask db migrate -m "create initial commerce schema"
+    flask db upgrade
+
+Do not edit generated migration files manually unless a migration requires a
+database-specific adjustment.
