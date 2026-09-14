@@ -299,9 +299,68 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
       <section id="catalog" className="mx-auto max-w-[1400px] px-4 pb-24 pt-8 lg:px-8">
         <SectionHeader title="Todos los productos" viewAllHref="#catalog" />
 
-        {/* Horizontal filters */}
-        <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-neutral-200 pb-6">
-          <div className="flex flex-wrap gap-2">
+        {/* Horizontal filters — single row: [search 50%] [gap 5%] [dropdowns+controls ~45%] */}
+        <div className="mb-8 border-b border-neutral-200 pb-6">
+
+          {/* Top row: search + sort controls */}
+          <div className="flex items-center gap-[5%]">
+
+            {/* Search — 50% */}
+            <form onSubmit={submitSearch} className="flex w-[50%] shrink-0 gap-0 border border-neutral-300">
+              <GlassInput
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Buscar productos, marcas o SKUs..."
+                className="border-0 !py-2 text-xs"
+              />
+              <GlassButton type="submit" className="shrink-0 rounded-none !py-2 text-xs">
+                Buscar
+              </GlassButton>
+            </form>
+
+            {/* Dropdowns + controls — ~45% */}
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
+              <select
+                value={brand}
+                onChange={(event) => { setBrand(event.target.value); setPage(1) }}
+                className="glass-input w-auto py-2 text-xs"
+              >
+                <option value="">Todas las marcas</option>
+                {brands.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+              <select
+                value={sort}
+                onChange={(event) => { setSort(event.target.value); setPage(1) }}
+                className="glass-input w-auto py-2 text-xs"
+              >
+                <option value="newest">Más recientes</option>
+                <option value="price_asc">Precio: menor a mayor</option>
+                <option value="price_desc">Precio: mayor a menor</option>
+                <option value="best_selling">Más vendidos</option>
+                <option value="top_rated">Mejor calificados</option>
+                <option value="name">Nombre</option>
+              </select>
+              <label className="flex cursor-pointer items-center gap-2 text-xs uppercase tracking-wider text-neutral-600">
+                <input
+                  checked={available}
+                  onChange={(event) => { setAvailable(event.target.checked); setPage(1) }}
+                  type="checkbox"
+                  className="accent-black"
+                />
+                En stock
+              </label>
+              {(search || category || brand || available) && (
+                <button type="button" onClick={resetFilters} className="text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-70">
+                  Limpiar
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Category pills row */}
+          <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => { setCategory(''); setPage(1) }}
@@ -323,45 +382,6 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
                 {item.name}
               </button>
             ))}
-          </div>
-
-          <div className="ml-auto flex flex-wrap items-center gap-3">
-            <select
-              value={brand}
-              onChange={(event) => { setBrand(event.target.value); setPage(1) }}
-              className="glass-input w-auto py-2 text-xs"
-            >
-              <option value="">Todas las marcas</option>
-              {brands.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </select>
-            <select
-              value={sort}
-              onChange={(event) => { setSort(event.target.value); setPage(1) }}
-              className="glass-input w-auto py-2 text-xs"
-            >
-              <option value="newest">Más recientes</option>
-              <option value="price_asc">Precio: menor a mayor</option>
-              <option value="price_desc">Precio: mayor a menor</option>
-              <option value="best_selling">Más vendidos</option>
-              <option value="top_rated">Mejor calificados</option>
-              <option value="name">Nombre</option>
-            </select>
-            <label className="flex cursor-pointer items-center gap-2 text-xs uppercase tracking-wider text-neutral-600">
-              <input
-                checked={available}
-                onChange={(event) => { setAvailable(event.target.checked); setPage(1) }}
-                type="checkbox"
-                className="accent-black"
-              />
-              En stock
-            </label>
-            {(search || category || brand || available) && (
-              <button type="button" onClick={resetFilters} className="text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-70">
-                Limpiar
-              </button>
-            )}
           </div>
         </div>
 
