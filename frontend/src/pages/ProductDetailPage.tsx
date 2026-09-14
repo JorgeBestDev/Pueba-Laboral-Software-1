@@ -137,7 +137,7 @@ export function ProductDetailPage() {
     try {
       await toggle(product.id)
     } catch {
-      push('Inicia sesión para guardar en tu wishlist', 'error')
+      push('Inicia sesión para guardar en tu lista de deseos', 'error')
     }
   }
 
@@ -262,7 +262,7 @@ export function ProductDetailPage() {
             <GlassButton onClick={handleAdd} disabled={!inStock} className="flex-1 justify-center">
               {inStock ? 'Añadir al carrito' : 'Sin stock'}
             </GlassButton>
-            <GlassButton variant="icon" onClick={handleSave} className="h-11 w-11 p-0" aria-label="Guardar en wishlist">
+            <GlassButton variant="icon" onClick={handleSave} className="h-11 w-11 p-0" aria-label="Guardar en lista de deseos">
               {saved ? '♥' : '♡'}
             </GlassButton>
           </div>

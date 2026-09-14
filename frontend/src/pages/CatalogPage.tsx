@@ -34,7 +34,7 @@ function ProductCard({ product, compact = false }: { product: Product; compact?:
     try {
       await toggle(product.id)
     } catch {
-      push('Inicia sesión para guardar en tu wishlist', 'error')
+      push('Inicia sesión para guardar en tu lista de deseos', 'error')
     }
   }
 
@@ -61,7 +61,7 @@ function ProductCard({ product, compact = false }: { product: Product; compact?:
           type="button"
           className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center bg-white/90 text-sm opacity-0 transition group-hover:opacity-100"
           onClick={handleSave}
-          aria-label="Guardar en wishlist"
+          aria-label="Guardar en lista de deseos"
         >
           {saved ? '♥' : '♡'}
         </button>
@@ -192,18 +192,18 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
     <>
       {/* Hero */}
       <section id="hero" className="mx-auto max-w-[1400px] px-4 py-16 text-center lg:px-8 lg:py-24">
-        <p className="mb-4 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-neutral-500">The intelligent marketplace</p>
+        <p className="mb-4 text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-neutral-500">El marketplace inteligente</p>
         <h1 className="font-display mx-auto max-w-4xl text-4xl leading-tight tracking-tight sm:text-6xl lg:text-7xl">
-          Curated objects for your <em className="italic">next chapter.</em>
+          Objetos curados para tu <em className="italic">próximo capítulo.</em>
         </h1>
         <p className="mx-auto mt-6 max-w-xl text-sm leading-relaxed text-neutral-600">
-          A considered collection of products, powered by discovery that feels personal.
+          Una colección cuidadosamente seleccionada, impulsada por un descubrimiento que se siente personal.
         </p>
 
         <div className="mx-auto mt-10 flex max-w-lg flex-wrap items-center justify-center gap-8 text-xs text-neutral-600">
           <div className="flex flex-col items-center gap-2">
             <span className="text-2xl">✦</span>
-            <span className="font-medium uppercase tracking-wider">Curated selection</span>
+            <span className="font-medium uppercase tracking-wider">Selección curada</span>
           </div>
           <div className="flex flex-col items-center gap-2">
             <span className="text-2xl">◈</span>
@@ -220,11 +220,11 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
             id="hero-search"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search products, brands or SKUs..."
+            placeholder="Buscar productos, marcas o SKUs..."
             className="border-0"
           />
           <GlassButton type="submit" className="shrink-0 rounded-none">
-            Search
+            Buscar
           </GlassButton>
         </form>
       </section>
@@ -246,7 +246,7 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
         <div className="relative flex min-h-[420px] items-end justify-end bg-neutral-900 p-8 lg:min-h-[520px] lg:p-12">
           <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 to-black opacity-90" />
           <div className="relative text-right text-white">
-            <p className="font-display text-3xl italic lg:text-4xl">Best Sellers</p>
+            <p className="font-display text-3xl italic lg:text-4xl">Más vendidos</p>
             <a href="#catalog" className="pill-btn mt-4 inline-flex">
               Ver más
             </a>
@@ -255,7 +255,7 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
         <div className="relative flex min-h-[420px] items-end justify-end bg-neutral-700 p-8 lg:min-h-[520px] lg:p-12">
           <div className="absolute inset-0 bg-gradient-to-bl from-neutral-600 to-neutral-900 opacity-90" />
           <div className="relative text-right text-white">
-            <p className="font-display text-3xl italic lg:text-4xl">Total Looks</p>
+            <p className="font-display text-3xl italic lg:text-4xl">Looks completos</p>
             <a href="#catalog" className="pill-btn mt-4 inline-flex">
               Ver más
             </a>
@@ -284,20 +284,20 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
       <section className="mx-auto max-w-[1400px] px-4 py-8 lg:px-8">
         <div className="flex flex-col items-start justify-between gap-6 border border-neutral-200 bg-neutral-50 p-8 lg:flex-row lg:items-center lg:p-12">
           <div>
-            <Badge>Curated drop 01</Badge>
+            <Badge>Lanzamiento curado 01</Badge>
             <p className="font-display mt-4 max-w-md text-2xl leading-snug lg:text-3xl">
-              Made for the beautifully <em className="italic">unfinished.</em>
+              Hecho para lo bellamente <em className="italic">inacabado.</em>
             </p>
           </div>
           <a href="#catalog">
-            <GlassButton>Explore the edit</GlassButton>
+            <GlassButton>Explorar la selección</GlassButton>
           </a>
         </div>
       </section>
 
       {/* Full catalog */}
       <section id="catalog" className="mx-auto max-w-[1400px] px-4 pb-24 pt-8 lg:px-8">
-        <SectionHeader title="All products" viewAllHref="#catalog" />
+        <SectionHeader title="Todos los productos" viewAllHref="#catalog" />
 
         {/* Horizontal filters */}
         <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-neutral-200 pb-6">
@@ -309,7 +309,7 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
                 !category ? 'bg-black text-white' : 'text-neutral-600 hover:text-black'
               }`}
             >
-              All
+              Todas
             </button>
             {categories.map((item) => (
               <button
@@ -331,7 +331,7 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
               onChange={(event) => { setBrand(event.target.value); setPage(1) }}
               className="glass-input w-auto py-2 text-xs"
             >
-              <option value="">All brands</option>
+              <option value="">Todas las marcas</option>
               {brands.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
@@ -341,10 +341,10 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
               onChange={(event) => { setSort(event.target.value); setPage(1) }}
               className="glass-input w-auto py-2 text-xs"
             >
-              <option value="newest">Newest</option>
-              <option value="price_asc">Price: low to high</option>
-              <option value="price_desc">Price: high to low</option>
-              <option value="name">Name</option>
+              <option value="newest">Más recientes</option>
+              <option value="price_asc">Precio: menor a mayor</option>
+              <option value="price_desc">Precio: mayor a menor</option>
+              <option value="name">Nombre</option>
             </select>
             <label className="flex cursor-pointer items-center gap-2 text-xs uppercase tracking-wider text-neutral-600">
               <input
@@ -353,11 +353,11 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
                 type="checkbox"
                 className="accent-black"
               />
-              In stock
+              En stock
             </label>
             {(search || category || brand || available) && (
               <button type="button" onClick={resetFilters} className="text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-70">
-                Clear
+                Limpiar
               </button>
             )}
           </div>

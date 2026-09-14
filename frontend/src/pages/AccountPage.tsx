@@ -5,6 +5,7 @@ import {
   deleteAddress,
   listAddresses,
   listOrders,
+  ORDER_STATUS_LABEL,
   removeWishlistItem,
   updateAddress,
   type Address,
@@ -49,7 +50,7 @@ function OrdersTab() {
               <p className="font-medium">Pedido #{order.id}</p>
               <p className="text-sm text-neutral-600">{order.items.length} artículos · ${order.total}</p>
             </div>
-            <Badge tone={STATUS_TONE[order.status]}>{order.status}</Badge>
+            <Badge tone={STATUS_TONE[order.status]}>{ORDER_STATUS_LABEL[order.status]}</Badge>
           </GlassPanel>
         </Link>
       ))}
@@ -126,12 +127,12 @@ function WishlistTab() {
       await removeWishlistItem(itemId)
       forceRerender((value) => value + 1)
     } catch (error) {
-      push(error instanceof ApiError ? error.message : 'No se pudo actualizar tu wishlist', 'error')
+      push(error instanceof ApiError ? error.message : 'No se pudo actualizar tu lista de deseos', 'error')
     }
   }
 
-  if (loading) return <p className="text-neutral-500">Cargando wishlist…</p>
-  if (!wishlist || wishlist.items.length === 0) return <p className="text-neutral-500">Tu wishlist está vacía.</p>
+  if (loading) return <p className="text-neutral-500">Cargando lista de deseos…</p>
+  if (!wishlist || wishlist.items.length === 0) return <p className="text-neutral-500">Tu lista de deseos está vacía.</p>
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -191,7 +192,7 @@ export function AccountPage() {
               tab === item ? 'bg-black text-white' : 'text-neutral-600 hover:text-black'
             }`}
           >
-            {item === 'orders' ? 'Pedidos' : item === 'addresses' ? 'Direcciones' : 'Wishlist'}
+            {item === 'orders' ? 'Pedidos' : item === 'addresses' ? 'Direcciones' : 'Lista de deseos'}
           </button>
         ))}
       </div>

@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ApiError, cancelOrder, getOrder, type Order, type OrderStatus } from '../lib/api'
+import {
+  ApiError,
+  cancelOrder,
+  getOrder,
+  ORDER_STATUS_LABEL,
+  PAYMENT_METHOD_LABEL,
+  PAYMENT_STATUS_LABEL,
+  type Order,
+  type OrderStatus,
+} from '../lib/api'
 import { useToast } from '../lib/toast-context'
 import { Badge, GlassButton, GlassPanel } from '../components/ui'
 
 const TIMELINE: OrderStatus[] = ['pending', 'paid', 'processing', 'shipped', 'completed']
-
-const STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: 'Pendiente',
-  paid: 'Pagado',
-  processing: 'En preparación',
-  shipped: 'Enviado',
-  completed: 'Completado',
-  cancelled: 'Cancelado',
-}
 
 export function OrderTrackerPage() {
   const { id } = useParams<{ id: string }>()
@@ -75,7 +75,7 @@ export function OrderTrackerPage() {
       </Link>
       <div className="mt-4 flex items-center justify-between">
         <h1 className="font-display text-3xl uppercase tracking-tight">Pedido #{order.id}</h1>
-        <Badge tone={isCancelled ? 'danger' : order.status === 'completed' ? 'success' : 'default'}>{STATUS_LABEL[order.status]}</Badge>
+        <Badge tone={isCancelled ? 'danger' : order.status === 'completed' ? 'success' : 'default'}>{ORDER_STATUS_LABEL[order.status]}</Badge>
       </div>
 
       {!isCancelled && (
@@ -91,7 +91,7 @@ export function OrderTrackerPage() {
                   {index + 1}
                 </div>
                 <p className={`mt-2 text-center text-xs uppercase tracking-wider ${index <= currentIndex ? 'text-black' : 'text-neutral-400'}`}>
-                  {STATUS_LABEL[status]}
+                  {ORDER_STATUS_LABEL[status]}
                 </p>
               </div>
             ))}
@@ -132,7 +132,7 @@ export function OrderTrackerPage() {
             <GlassPanel className="p-6">
               <h2 className="font-display text-lg uppercase">Pago</h2>
               <p className="mt-2 text-sm text-neutral-600">
-                Método: {order.payment.method} · Estado: <span className="font-medium text-black">{order.payment.status}</span>
+                Método: {PAYMENT_METHOD_LABEL[order.payment.method]} · Estado: <span className="font-medium text-black">{PAYMENT_STATUS_LABEL[order.payment.status]}</span>
               </p>
             </GlassPanel>
           )}

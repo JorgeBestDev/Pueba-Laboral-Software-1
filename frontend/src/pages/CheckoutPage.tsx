@@ -6,6 +6,7 @@ import {
   checkout as submitCheckout,
   createAddress,
   listAddresses,
+  ORDER_STATUS_LABEL,
   type Address,
   type Order,
   type PaymentMethod,
@@ -110,7 +111,7 @@ export function CheckoutPage() {
           <Badge tone="success">Pedido confirmado</Badge>
           <h1 className="font-display mt-4 text-3xl">¡Gracias por tu compra!</h1>
           <p className="mt-3 text-neutral-600">
-            Pedido #{order.id} por ${order.total}. Estado actual: <span className="font-medium text-black">{order.status}</span>
+            Pedido #{order.id} por ${order.total}. Estado actual: <span className="font-medium text-black">{ORDER_STATUS_LABEL[order.status]}</span>
           </p>
           <div className="mt-8 flex justify-center gap-3">
             <GlassButton onClick={() => navigate(`/account/orders/${order.id}`)}>Ver seguimiento</GlassButton>
@@ -160,7 +161,7 @@ export function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-16 lg:px-8">
-      <h1 className="font-display text-3xl uppercase tracking-tight">Checkout</h1>
+      <h1 className="font-display text-3xl uppercase tracking-tight">Finalizar compra</h1>
 
       <div className="mt-8 flex flex-wrap items-center gap-4">
         {STEPS.map((label, index) => (

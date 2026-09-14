@@ -82,6 +82,31 @@ export type OrderStatus = 'pending' | 'paid' | 'processing' | 'shipped' | 'compl
 export type PaymentStatus = 'pending' | 'authorized' | 'paid' | 'failed' | 'refunded'
 export type PaymentMethod = 'card' | 'paypal' | 'cash_on_delivery'
 
+// Human-readable Spanish labels shared across pages so raw backend enum
+// values (e.g. "pending", "cash_on_delivery") are never rendered as-is.
+export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
+  pending: 'Pendiente',
+  paid: 'Pagado',
+  processing: 'En preparación',
+  shipped: 'Enviado',
+  completed: 'Completado',
+  cancelled: 'Cancelado',
+}
+
+export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
+  pending: 'Pendiente',
+  authorized: 'Autorizado',
+  paid: 'Pagado',
+  failed: 'Fallido',
+  refunded: 'Reembolsado',
+}
+
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  card: 'Tarjeta',
+  paypal: 'PayPal',
+  cash_on_delivery: 'Contraentrega',
+}
+
 export type Order = {
   id: number
   user_id: number

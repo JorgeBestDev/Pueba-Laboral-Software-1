@@ -87,7 +87,7 @@ export function AIWidget() {
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
               <div>
-                <p className="font-display text-sm font-semibold tracking-wide">Vokter AI Concierge</p>
+                <p className="font-display text-sm font-semibold tracking-wide">Concierge IA de Vokter</p>
                 <p className="text-[0.65rem] text-neutral-500 uppercase tracking-wider">Asistente de compras en vivo</p>
               </div>
             </div>

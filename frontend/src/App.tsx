@@ -13,11 +13,11 @@ import { OrderTrackerPage } from './pages/OrderTrackerPage'
 import { ProductDetailPage } from './pages/ProductDetailPage'
 
 const NAV_LINKS = [
-  { label: 'New arrivals', href: '/#new' },
-  { label: 'Bestsellers', href: '/#catalog' },
-  { label: 'Explore', href: '/#catalog' },
-  { label: 'AI concierge', href: '#ai' },
-  { label: 'Mobile app', href: '#mobile' },
+  { label: 'Novedades', href: '/#new' },
+  { label: 'Más vendidos', href: '/#catalog' },
+  { label: 'Explorar', href: '/#catalog' },
+  { label: 'Asistente IA', href: '#ai' },
+  { label: 'App móvil', href: '#mobile' },
 ]
 
 function Header({ onOpenAuth, onOpenSearch }: { onOpenAuth: () => void; onOpenSearch: () => void }) {
@@ -87,7 +87,7 @@ function Footer() {
           <p className="font-display text-lg italic text-black">vokter.</p>
           <p className="mt-1">© 2026 Vokter</p>
         </div>
-        <p className="max-w-sm text-neutral-600">Intelligent commerce, thoughtfully made.</p>
+        <p className="max-w-sm text-neutral-600">Comercio inteligente, hecho con intención.</p>
       </div>
     </footer>
   )
