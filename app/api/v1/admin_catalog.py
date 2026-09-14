@@ -9,6 +9,44 @@ admin_catalog_bp = Blueprint("admin_catalog", __name__, url_prefix="/admin/catal
 admin_catalog_service = AdminCatalogService()
 
 
+@admin_catalog_bp.get("/categories")
+@admin_required
+def list_categories():
+    categories = admin_catalog_service.list_categories()
+    return jsonify({"data": [serialize_category(category) for category in categories]})
+
+
+@admin_catalog_bp.get("/products")
+@admin_required
+def list_products():
+    page = max(request.args.get("page", 1, type=int), 1)
+    per_page = min(max(request.args.get("per_page", 20, type=int), 1), 100)
+    products, total = admin_catalog_service.list_products(
+        search=request.args.get("q"), page=page, per_page=per_page
+    )
+    return jsonify(
+        {
+            "data": [serialize_product(product, include_variants=True) for product in products],
+            "meta": {
+                "page": page,
+                "per_page": per_page,
+                "count": len(products),
+                "total": total,
+                "pages": (total + per_page - 1) // per_page,
+            },
+        }
+    )
+
+
+@admin_catalog_bp.get("/products/<int:product_id>")
+@admin_required
+def get_product(product_id: int):
+    from app.services.catalog import CatalogService
+
+    product = CatalogService().get_product(product_id)
+    return jsonify({"data": serialize_product(product, include_details=True)})
+
+
 @admin_catalog_bp.post("/categories")
 @admin_required
 def create_category():

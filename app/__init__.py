@@ -3,6 +3,8 @@ from pathlib import Path
 
 from flask import Flask
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
@@ -10,6 +12,11 @@ from app.config import config_by_name
 
 db = SQLAlchemy()
 migrate = Migrate()
+# In-memory limiter: no default limits are applied globally, only the
+# sensitive admin auth endpoints opt in via @limiter.limit(...). This is
+# enough to slow down brute-force attempts against the admin panel without
+# introducing an external dependency (Redis, etc.) for a single-instance deploy.
+limiter = Limiter(key_func=get_remote_address)
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -26,6 +33,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
     db.init_app(app)
     migrate.init_app(app, db)
+    limiter.init_app(app)
     CORS(
         app,
         resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}},

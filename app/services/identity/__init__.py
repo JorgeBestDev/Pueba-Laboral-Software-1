@@ -2,5 +2,7 @@
 
 from app.services.identity.auth_service import AuthService
 from app.services.identity.address_service import AddressService
+from app.services.identity.captcha_service import CaptchaService
+from app.services.identity.admin_user_service import AdminUserService
 
-__all__ = ["AddressService", "AuthService"]
+__all__ = ["AddressService", "AdminUserService", "AuthService", "CaptchaService"]

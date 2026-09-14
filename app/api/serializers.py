@@ -117,8 +117,8 @@ def serialize_review(review: Review) -> dict[str, Any]:
     }
 
 
-def serialize_order(order: Order) -> dict[str, Any]:
-    return {
+def serialize_order(order: Order, include_customer: bool = False) -> dict[str, Any]:
+    data = {
         "id": order.id,
         "user_id": order.user_id,
         "status": order.status.value,
@@ -165,7 +165,15 @@ def serialize_order(order: Order) -> dict[str, Any]:
             if order.shipment
             else None
         ),
+        "created_at": order.created_at.isoformat(),
     }
+    if include_customer:
+        data["customer"] = {
+            "id": order.user.id,
+            "name": f"{order.user.first_name} {order.user.last_name}".strip(),
+            "email": order.user.email,
+        }
+    return data
 
 
 def serialize_address(address: Address) -> dict[str, Any]:

@@ -1,6 +1,6 @@
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
 from app import db
 from app.models import Category, Product, ProductVariant
@@ -8,6 +8,22 @@ from app.services.exceptions import ResourceNotFoundError, ValidationError
 
 
 class AdminCatalogService:
+    def list_categories(self) -> list[Category]:
+        return db.session.scalars(select(Category).order_by(Category.name.asc())).all()
+
+    def list_products(
+        self, search: str | None = None, page: int = 1, per_page: int = 20
+    ) -> tuple[list[Product], int]:
+        query = select(Product)
+        if search:
+            like = f"%{search.strip()}%"
+            query = query.where(or_(Product.name.ilike(like), Product.brand.ilike(like)))
+        total = db.session.scalar(select(func.count()).select_from(query.subquery())) or 0
+        products = db.session.scalars(
+            query.order_by(Product.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
+        ).all()
+        return products, total
+
     def create_category(self, data: dict) -> Category:
         name = self._required_string(data, "name", 100)
         slug = self._required_string(data, "slug", 120)

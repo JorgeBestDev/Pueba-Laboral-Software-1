@@ -9,6 +9,10 @@ from app.api.v1.users import users_bp
 from app.api.v1.social import social_bp
 from app.api.v1.wishlist import wishlist_bp
 from app.api.v1.admin_catalog import admin_catalog_bp
+from app.api.v1.admin_auth import admin_auth_bp
+from app.api.v1.admin_dashboard import admin_dashboard_bp
+from app.api.v1.admin_orders import admin_orders_bp
+from app.api.v1.admin_users import admin_users_bp
 
 v1_bp = Blueprint("v1", __name__, url_prefix="/api/v1")
 
@@ -27,3 +31,7 @@ v1_bp.register_blueprint(orders_bp)
 v1_bp.register_blueprint(users_bp)
 v1_bp.register_blueprint(wishlist_bp)
 v1_bp.register_blueprint(admin_catalog_bp)
+v1_bp.register_blueprint(admin_auth_bp)
+v1_bp.register_blueprint(admin_dashboard_bp)
+v1_bp.register_blueprint(admin_orders_bp)
+v1_bp.register_blueprint(admin_users_bp)

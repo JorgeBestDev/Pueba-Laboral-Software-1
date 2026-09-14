@@ -1,9 +1,10 @@
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app import db
 from app.models import (
+    Address,
     Cart,
     Order,
     OrderItem,
@@ -12,7 +13,7 @@ from app.models import (
     PaymentMethod,
     Shipment,
     ShipmentStatus,
-    Address,
+    User,
 )
 from app.services.exceptions import BusinessRuleError, ResourceNotFoundError, ValidationError
 from app.services.commerce.payment_service import PaymentService
@@ -167,6 +168,13 @@ class OrderService:
             raise ResourceNotFoundError("Order not found")
         return order
 
+    def get_order_any(self, order_id: int) -> Order:
+        """Admin-only lookup: any order regardless of owner."""
+        order = db.session.get(Order, order_id)
+        if order is None:
+            raise ResourceNotFoundError("Order not found")
+        return order
+
     def list_orders(
         self, user_id: int, page: int = 1, per_page: int = 20, status: str | None = None
     ) -> tuple[list[Order], int]:
@@ -176,6 +184,38 @@ class OrderService:
                 query = query.where(Order.status == OrderStatus(status))
             except ValueError as error:
                 raise ValidationError("Invalid order status") from error
+        total = db.session.scalar(select(func.count()).select_from(query.subquery())) or 0
+        orders = db.session.scalars(
+            query
+            .order_by(Order.created_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        ).all()
+        return orders, total
+
+    def list_all_orders(
+        self,
+        page: int = 1,
+        per_page: int = 20,
+        status: str | None = None,
+        search: str | None = None,
+    ) -> tuple[list[Order], int]:
+        """Admin-only listing across every customer, with optional filters."""
+        query = select(Order)
+        if status:
+            try:
+                query = query.where(Order.status == OrderStatus(status))
+            except ValueError as error:
+                raise ValidationError("Invalid order status") from error
+        if search:
+            like = f"%{search.strip()}%"
+            query = query.join(User, Order.user_id == User.id).where(
+                or_(
+                    User.email.ilike(like),
+                    User.first_name.ilike(like),
+                    User.last_name.ilike(like),
+                )
+            )
         total = db.session.scalar(select(func.count()).select_from(query.subquery())) or 0
         orders = db.session.scalars(
             query

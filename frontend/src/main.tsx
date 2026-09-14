@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
+import { AdminAuthProvider } from './lib/admin-auth-context'
 import { AuthProvider } from './lib/auth-context'
 import { CartProvider } from './lib/cart-context'
 import { WishlistProvider } from './lib/wishlist-context'
@@ -15,7 +16,9 @@ createRoot(document.getElementById('root')!).render(
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>
-              <App />
+              <AdminAuthProvider>
+                <App />
+              </AdminAuthProvider>
             </WishlistProvider>
           </CartProvider>
         </AuthProvider>

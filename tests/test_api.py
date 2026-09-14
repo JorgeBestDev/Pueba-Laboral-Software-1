@@ -60,6 +60,16 @@ class ApiTestCase(unittest.TestCase):
             json={"email": email, "password": "password1"},
         ).get_json()["data"]["access_token"]
 
+    def solve_captcha(self) -> dict:
+        """Fetch a captcha challenge and decode its signed answer for use in tests."""
+        import jwt
+
+        challenge = self.client.get("/api/v1/admin/auth/captcha").get_json()["data"]
+        claims = jwt.decode(
+            challenge["token"], self.app.config["SECRET_KEY"], algorithms=["HS256"]
+        )
+        return {"token": challenge["token"], "answer": claims["answer"]}
+
     def tearDown(self):
         db.session.remove()
         db.drop_all()
@@ -564,6 +574,208 @@ class ApiTestCase(unittest.TestCase):
         data = response.get_json()["data"]
         self.assertIn("id", data)
         self.assertEqual(data["event_type"], "view_product")
+
+    # -- Admin panel: captcha + dedicated login ---------------------------
+
+    def test_admin_login_succeeds_with_valid_captcha_and_role(self):
+        self.register("owner@example.com")
+        user = db.session.query(User).filter_by(email="owner@example.com").one()
+        user.role = UserRole.ADMIN
+        db.session.commit()
+
+        captcha = self.solve_captcha()
+        response = self.client.post(
+            "/api/v1/admin/auth/login",
+            json={
+                "email": "owner@example.com",
+                "password": "password1",
+                "captcha_token": captcha["token"],
+                "captcha_answer": captcha["answer"],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()["data"]
+        self.assertEqual(data["user"]["role"], "admin")
+        self.assertIn("access_token", data)
+
+    def test_admin_login_rejects_wrong_captcha_answer(self):
+        self.register("owner2@example.com")
+        user = db.session.query(User).filter_by(email="owner2@example.com").one()
+        user.role = UserRole.ADMIN
+        db.session.commit()
+
+        captcha = self.solve_captcha()
+        response = self.client.post(
+            "/api/v1/admin/auth/login",
+            json={
+                "email": "owner2@example.com",
+                "password": "password1",
+                "captcha_token": captcha["token"],
+                "captcha_answer": captcha["answer"] + 1,
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"]["code"], "validation_error")
+
+    def test_admin_login_rejects_non_admin_user(self):
+        self.register("customer3@example.com")
+        captcha = self.solve_captcha()
+        response = self.client.post(
+            "/api/v1/admin/auth/login",
+            json={
+                "email": "customer3@example.com",
+                "password": "password1",
+                "captcha_token": captcha["token"],
+                "captcha_answer": captcha["answer"],
+            },
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_admin_captcha_token_cannot_be_reused_after_expiry(self):
+        import time
+        from unittest.mock import patch
+
+        with patch.dict(self.app.config, {"CAPTCHA_TOKEN_TTL_SECONDS": 1}):
+            captcha = self.solve_captcha()
+        time.sleep(2)
+        response = self.client.post(
+            "/api/v1/admin/auth/login",
+            json={
+                "email": "nobody@example.com",
+                "password": "password1",
+                "captcha_token": captcha["token"],
+                "captcha_answer": captcha["answer"],
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+
+    # -- Admin panel: dashboard summary -----------------------------------
+
+    def test_admin_dashboard_summary_returns_kpis_and_recent_orders(self):
+        buyer = self.register("dashboard-buyer@example.com")
+        self.register("dashboard-root@example.com")
+        admin_token = self.make_admin("dashboard-root@example.com")
+        headers = self.auth_headers(buyer["access_token"])
+        cart = self.client.post("/api/v1/carts", headers=headers, json={}).get_json()["data"]
+        self.client.post(
+            f"/api/v1/carts/{cart['id']}/items",
+            headers=headers,
+            json={"variant_id": self.variant.id, "quantity": 1},
+        )
+        self.client.post(
+            "/api/v1/orders/checkout",
+            headers={**headers, "Idempotency-Key": "dash-key-1"},
+            json={"cart_id": cart["id"], "shipping_address": "Calle 1"},
+        )
+
+        response = self.client.get(
+            "/api/v1/admin/dashboard", headers=self.auth_headers(admin_token)
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()["data"]
+        self.assertIn("kpis", data)
+        self.assertGreaterEqual(data["kpis"]["active_orders"], 1)
+        self.assertIn("orders_by_status", data)
+        self.assertEqual(len(data["orders_by_status"]), 6)
+        self.assertIn("low_stock_alerts", data)
+        self.assertGreaterEqual(len(data["recent_orders"]), 1)
+
+    def test_admin_dashboard_requires_admin_role(self):
+        data = self.register("plain-user@example.com")
+        response = self.client.get(
+            "/api/v1/admin/dashboard", headers=self.auth_headers(data["access_token"])
+        )
+        self.assertEqual(response.status_code, 403)
+
+    # -- Admin panel: orders across every customer ------------------------
+
+    def test_admin_orders_list_returns_orders_from_every_customer(self):
+        self.register("admin-orders@example.com")
+        admin_token = self.make_admin("admin-orders@example.com")
+        buyer = self.register("orders-buyer@example.com")
+        headers = self.auth_headers(buyer["access_token"])
+        cart = self.client.post("/api/v1/carts", headers=headers, json={}).get_json()["data"]
+        self.client.post(
+            f"/api/v1/carts/{cart['id']}/items",
+            headers=headers,
+            json={"variant_id": self.variant.id, "quantity": 1},
+        )
+        checkout = self.client.post(
+            "/api/v1/orders/checkout",
+            headers={**headers, "Idempotency-Key": "admin-order-key"},
+            json={"cart_id": cart["id"], "shipping_address": "Calle 2"},
+        )
+        order_id = checkout.get_json()["data"]["id"]
+
+        listing = self.client.get(
+            "/api/v1/admin/orders", headers=self.auth_headers(admin_token)
+        )
+        self.assertEqual(listing.status_code, 200)
+        ids = [order["id"] for order in listing.get_json()["data"]]
+        self.assertIn(order_id, ids)
+        self.assertEqual(listing.get_json()["data"][0]["customer"]["email"], "orders-buyer@example.com")
+
+        detail = self.client.get(
+            f"/api/v1/admin/orders/{order_id}", headers=self.auth_headers(admin_token)
+        )
+        self.assertEqual(detail.status_code, 200)
+
+        status_update = self.client.patch(
+            f"/api/v1/admin/orders/{order_id}/status",
+            headers=self.auth_headers(admin_token),
+            json={"status": "paid"},
+        )
+        self.assertEqual(status_update.status_code, 200)
+        self.assertEqual(status_update.get_json()["data"]["status"], "paid")
+
+    # -- Admin panel: customer management (CRUD) --------------------------
+
+    def test_admin_users_crud_flow(self):
+        self.register("admin-users@example.com")
+        admin_token = self.make_admin("admin-users@example.com")
+        headers = self.auth_headers(admin_token)
+
+        created = self.client.post(
+            "/api/v1/admin/users",
+            headers=headers,
+            json={
+                "email": "new-customer@example.com",
+                "password": "password1",
+                "first_name": "Nueva",
+                "last_name": "Cliente",
+                "role": "customer",
+            },
+        )
+        self.assertEqual(created.status_code, 201)
+        user_id = created.get_json()["data"]["id"]
+
+        listing = self.client.get("/api/v1/admin/users", headers=headers)
+        self.assertEqual(listing.status_code, 200)
+        self.assertGreaterEqual(listing.get_json()["meta"]["total"], 2)
+
+        detail = self.client.get(f"/api/v1/admin/users/{user_id}", headers=headers)
+        self.assertEqual(detail.status_code, 200)
+        self.assertIn("stats", detail.get_json()["data"])
+
+        updated = self.client.patch(
+            f"/api/v1/admin/users/{user_id}",
+            headers=headers,
+            json={"first_name": "Actualizada", "is_active": True},
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.get_json()["data"]["first_name"], "Actualizada")
+
+        deactivated = self.client.delete(f"/api/v1/admin/users/{user_id}", headers=headers)
+        self.assertEqual(deactivated.status_code, 200)
+        self.assertFalse(deactivated.get_json()["data"]["is_active"])
+
+    def test_admin_cannot_deactivate_own_account(self):
+        self.register("solo-admin@example.com")
+        admin_token = self.make_admin("solo-admin@example.com")
+        headers = self.auth_headers(admin_token)
+        me = self.client.get("/api/v1/auth/me", headers=headers).get_json()["data"]
+        response = self.client.delete(f"/api/v1/admin/users/{me['id']}", headers=headers)
+        self.assertEqual(response.status_code, 409)
 
 
 if __name__ == "__main__":
