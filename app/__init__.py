@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -40,6 +40,16 @@ def create_app(config_name: str | None = None) -> Flask:
         supports_credentials=app.config["CORS_SUPPORTS_CREDENTIALS"],
         max_age=app.config["CORS_MAX_AGE"],
     )
+
+    # Ensure the uploads directory exists
+    upload_folder = Path(app.config["UPLOAD_FOLDER"])
+    upload_folder.mkdir(parents=True, exist_ok=True)
+
+    # Serve uploaded product images at /uploads/<filename>
+    # (intended for local/demo use only — not production-grade static serving)
+    @app.route("/uploads/<path:filename>")
+    def serve_upload(filename: str):
+        return send_from_directory(str(upload_folder), filename)
 
     from app import models  # noqa: F401
     from app.api import register_blueprints

@@ -45,6 +45,10 @@ class Config:
     ADMIN_LOGIN_RATE_LIMIT = os.getenv("ADMIN_LOGIN_RATE_LIMIT", "8 per minute")
     ADMIN_CAPTCHA_RATE_LIMIT = os.getenv("ADMIN_CAPTCHA_RATE_LIMIT", "30 per minute")
     RATELIMIT_ENABLED = os.getenv("RATELIMIT_ENABLED", "true").lower() == "true"
+    UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", str(BASE_DIR / "instance" / "uploads"))
+    PRODUCT_IMAGE_WIDTH = int(os.getenv("PRODUCT_IMAGE_WIDTH", "800"))
+    PRODUCT_IMAGE_HEIGHT = int(os.getenv("PRODUCT_IMAGE_HEIGHT", "800"))
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", str(8 * 1024 * 1024)))  # 8 MB
 
 
 class DevelopmentConfig(Config):

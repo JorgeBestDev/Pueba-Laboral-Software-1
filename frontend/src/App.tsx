@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
+import { AdminCustomersPage } from './admin/AdminCustomersPage'
+import { AdminDashboardPage } from './admin/AdminDashboardPage'
+import { AdminLayout } from './admin/AdminLayout'
+import { AdminLoginPage } from './admin/AdminLoginPage'
+import { AdminOrdersPage } from './admin/AdminOrdersPage'
+import { AdminProductsPage } from './admin/AdminProductsPage'
 import { AIWidget } from './components/AIWidget'
 import { AuthModal } from './components/AuthModal'
 import { CartDrawer } from './components/CartDrawer'
@@ -114,7 +120,7 @@ function ScrollToTop() {
   )
 }
 
-function App() {
+function Storefront() {
   const [authOpen, setAuthOpen] = useState(false)
   const [searchFocus, setSearchFocus] = useState(false)
   const { loading } = useAuth()
@@ -146,13 +152,7 @@ function App() {
       <Header onOpenAuth={() => setAuthOpen(true)} onOpenSearch={handleOpenSearch} />
 
       <main className="flex-1">
-        <Routes>
-          <Route path="/" element={<CatalogPage searchFocus={searchFocus} onSearchFocusHandled={() => setSearchFocus(false)} />} />
-          <Route path="/products/:slug" element={<ProductDetailPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/account" element={<AccountPage />} />
-          <Route path="/account/orders/:id" element={<OrderTrackerPage />} />
-        </Routes>
+        <Outlet context={{ searchFocus, onSearchFocusHandled: () => setSearchFocus(false) }} />
       </main>
 
       <Footer />
@@ -164,6 +164,35 @@ function App() {
         <AIWidget />
       </div>
     </div>
+  )
+}
+
+function CatalogRoute() {
+  const { searchFocus, onSearchFocusHandled } = useOutletContext<{
+    searchFocus: boolean
+    onSearchFocusHandled: () => void
+  }>()
+  return <CatalogPage searchFocus={searchFocus} onSearchFocusHandled={onSearchFocusHandled} />
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<AdminDashboardPage />} />
+        <Route path="pedidos" element={<AdminOrdersPage />} />
+        <Route path="productos" element={<AdminProductsPage />} />
+        <Route path="clientes" element={<AdminCustomersPage />} />
+      </Route>
+      <Route element={<Storefront />}>
+        <Route path="/" element={<CatalogRoute />} />
+        <Route path="/products/:slug" element={<ProductDetailPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/account" element={<AccountPage />} />
+        <Route path="/account/orders/:id" element={<OrderTrackerPage />} />
+      </Route>
+    </Routes>
   )
 }
 

@@ -1,5 +1,16 @@
 const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api/v1').replace(/\/$/, '')
 
+/**
+ * Converts a server-relative media path (e.g. "/uploads/abc.jpg") into a
+ * full URL pointing at the backend host.  Absolute URLs are returned as-is.
+ */
+export function resolveMediaUrl(path: string): string {
+  if (!path || path.startsWith('http://') || path.startsWith('https://')) return path
+  // Strip /api/v1 suffix to get the backend origin (e.g. http://localhost:5000)
+  const backendOrigin = API_URL.replace(/\/api\/v1\/?$/, '')
+  return `${backendOrigin}${path}`
+}
+
 // ---------------------------------------------------------------------------
 // Shared types (mirrors app/api/serializers.py)
 // ---------------------------------------------------------------------------

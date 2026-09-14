@@ -7,6 +7,7 @@ import {
   getProductBySlug,
   listProductReviews,
   recordEvent,
+  resolveMediaUrl,
   type Product,
   type ProductVariant,
   type Review,
@@ -191,7 +192,7 @@ export function ProductDetailPage() {
         <div>
           <div className="aspect-square overflow-hidden product-image-bg">
             {images[activeImage]?.url ? (
-              <img className="h-full w-full object-cover" src={images[activeImage].url} alt={images[activeImage].alt_text ?? product.name} />
+              <img className="h-full w-full object-cover" src={resolveMediaUrl(images[activeImage].url)} alt={images[activeImage].alt_text ?? product.name} />
             ) : (
               <div className="flex h-full items-center justify-center">
                 <span className="font-display text-9xl text-neutral-300">{product.name.slice(0, 1)}</span>
@@ -207,7 +208,7 @@ export function ProductDetailPage() {
                   onClick={() => setActiveImage(index)}
                   className={`h-16 w-16 overflow-hidden border-2 ${index === activeImage ? 'border-black' : 'border-neutral-200'}`}
                 >
-                  {image.url && <img className="h-full w-full object-cover" src={image.url} alt="" />}
+                  {image.url && <img className="h-full w-full object-cover" src={resolveMediaUrl(image.url)} alt="" />}
                 </button>
               ))}
             </div>

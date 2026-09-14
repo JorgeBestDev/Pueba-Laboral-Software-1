@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { getCategories, getFilters, getProductBySlug, getProducts, recordEvent, type Category, type Product } from '../lib/api'
+import { getCategories, getFilters, getProductBySlug, getProducts, recordEvent, resolveMediaUrl, type Category, type Product } from '../lib/api'
 import { useCart } from '../lib/cart-context'
 import { useWishlist } from '../lib/wishlist-context'
 import { useToast } from '../lib/toast-context'
@@ -44,7 +44,7 @@ function ProductCard({ product, compact = false }: { product: Product; compact?:
         {image ? (
           <img
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-            src={image.url}
+            src={resolveMediaUrl(image.url)}
             alt={image.alt_text ?? product.name}
           />
         ) : (
@@ -92,7 +92,7 @@ function CategoryCard({ category, product }: { category: Category; product?: Pro
     <Link to={`/#catalog`} onClick={() => window.dispatchEvent(new CustomEvent('vokter:filter-category', { detail: category.slug }))} className="group block">
       <div className="aspect-[3/4] overflow-hidden product-image-bg">
         {image ? (
-          <img className="h-full w-full object-cover transition duration-500 group-hover:scale-105" src={image.url} alt={category.name} />
+          <img className="h-full w-full object-cover transition duration-500 group-hover:scale-105" src={resolveMediaUrl(image.url)} alt={category.name} />
         ) : (
           <div className="flex h-full items-center justify-center">
             <span className="font-display text-5xl text-neutral-300">{category.name.slice(0, 1)}</span>

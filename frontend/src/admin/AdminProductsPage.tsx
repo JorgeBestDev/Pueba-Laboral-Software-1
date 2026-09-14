@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import * as adminApi from '../lib/admin-api'
 import { Modal } from '../components/ui'
@@ -35,6 +35,13 @@ function slugify(value: string) {
     .replace(/(^-|-$)/g, '')
 }
 
+/** Returns the full URL for an image path returned by the backend (/uploads/...). */
+function imageUrl(path: string) {
+  const base = (import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api/v1')
+    .replace(/\/api\/v1\/?$/, '')
+  return path.startsWith('http') ? path : `${base}${path}`
+}
+
 export function AdminProductsPage() {
   const [tab, setTab] = useState<'products' | 'categories'>('products')
 
@@ -52,6 +59,14 @@ export function AdminProductsPage() {
   const [form, setForm] = useState<ProductFormState>(EMPTY_PRODUCT_FORM)
   const [variants, setVariants] = useState<adminApi.AdminVariant[]>([])
   const [saving, setSaving] = useState(false)
+
+  // ── image state ──────────────────────────────────────────────────────────
+  const [images, setImages] = useState<adminApi.AdminProductImage[]>([])
+  // Pending file selected but not yet uploaded (only used during "create" flow)
+  const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  // ─────────────────────────────────────────────────────────────────────────
 
   const [categoryForm, setCategoryForm] = useState({ name: '', slug: '', description: '' })
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null)
@@ -80,10 +95,19 @@ export function AdminProductsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page])
 
+  // Clean up blob URLs to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (pendingImage) URL.revokeObjectURL(pendingImage.previewUrl)
+    }
+  }, [pendingImage])
+
   const openCreateProduct = () => {
     setEditingProductId(null)
     setForm(EMPTY_PRODUCT_FORM)
     setVariants([])
+    setImages([])
+    setPendingImage(null)
     setProductModalOpen(true)
   }
 
@@ -102,6 +126,8 @@ export function AdminProductsPage() {
         category_ids: product.categories.map((category) => category.id),
       })
       setVariants(product.variants ?? [])
+      setImages(product.images ?? [])
+      setPendingImage(null)
       setProductModalOpen(true)
     } catch (err) {
       setError(err instanceof adminApi.AdminApiError ? err.message : 'No se pudo cargar el producto')
@@ -125,7 +151,16 @@ export function AdminProductsPage() {
       if (editingProductId) {
         await adminApi.updateAdminProduct(editingProductId, payload)
       } else {
-        await adminApi.createAdminProduct(payload)
+        // Create the product first, then upload the pending image if any
+        const created = await adminApi.createAdminProduct(payload)
+        if (pendingImage) {
+          try {
+            await adminApi.uploadAdminProductImage(created.id, pendingImage.file)
+          } catch {
+            // Image upload failure is non-fatal: the product was already saved
+            setError('Producto creado, pero no se pudo subir la imagen.')
+          }
+        }
       }
       setProductModalOpen(false)
       loadProducts()
@@ -154,6 +189,48 @@ export function AdminProductsPage() {
         : [...current.category_ids, id],
     }))
   }
+
+  // ── image handlers ────────────────────────────────────────────────────────
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    // Reset the input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = ''
+
+    if (editingProductId) {
+      // Edit mode: upload immediately and add to the images list
+      setUploadingImage(true)
+      try {
+        const uploaded = await adminApi.uploadAdminProductImage(editingProductId, file)
+        setImages((current) => [...current, uploaded])
+      } catch (err) {
+        setError(err instanceof adminApi.AdminApiError ? err.message : 'No se pudo subir la imagen')
+      } finally {
+        setUploadingImage(false)
+      }
+    } else {
+      // Create mode: just show a local preview; upload happens after product creation
+      if (pendingImage) URL.revokeObjectURL(pendingImage.previewUrl)
+      setPendingImage({ file, previewUrl: URL.createObjectURL(file) })
+    }
+  }
+
+  const handleDeleteImage = async (imageId: number) => {
+    try {
+      await adminApi.deleteAdminProductImage(imageId)
+      setImages((current) => current.filter((img) => img.id !== imageId))
+    } catch (err) {
+      setError(err instanceof adminApi.AdminApiError ? err.message : 'No se pudo eliminar la imagen')
+    }
+  }
+
+  const handleClearPendingImage = () => {
+    if (pendingImage) URL.revokeObjectURL(pendingImage.previewUrl)
+    setPendingImage(null)
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   const [variantForm, setVariantForm] = useState({ sku: '', name: '', price: '', stock_quantity: '0' })
 
@@ -479,6 +556,89 @@ export function AdminProductsPage() {
             rows={3}
           />
 
+          {/* ── Image upload section ──────────────────────────────────────── */}
+          <div className="border-t border-neutral-200 pt-3">
+            <p className="mb-2 text-[0.6rem] font-semibold uppercase tracking-widest text-neutral-500">
+              Fotos del producto
+            </p>
+
+            {/* Saved images (edit mode) */}
+            {images.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-3">
+                {images.map((img) => (
+                  <div key={img.id} className="group relative h-24 w-24 shrink-0 overflow-hidden border border-neutral-200 bg-neutral-50">
+                    <img
+                      src={imageUrl(img.url)}
+                      alt={img.alt_text ?? ''}
+                      className="h-full w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteImage(img.id)}
+                      aria-label="Eliminar imagen"
+                      className="absolute right-0 top-0 bg-black/70 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pending preview (create mode — shown before form is submitted) */}
+            {pendingImage && !editingProductId && (
+              <div className="mb-3 flex items-start gap-3">
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden border border-neutral-200 bg-neutral-50">
+                  <img
+                    src={pendingImage.previewUrl}
+                    alt="Vista previa"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 pt-1">
+                  <p className="text-xs text-neutral-500 max-w-[14rem] truncate">{pendingImage.file.name}</p>
+                  <p className="text-[0.65rem] text-neutral-400">
+                    La imagen se subirá al guardar el producto.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleClearPendingImage}
+                    className="text-xs font-semibold text-red-600 underline underline-offset-2 self-start"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Upload button */}
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handleFileChange}
+                aria-label="Subir foto del producto"
+              />
+              <button
+                type="button"
+                disabled={uploadingImage}
+                onClick={() => fileInputRef.current?.click()}
+                className="glass-button !border !border-neutral-300 !bg-white !text-black text-xs"
+              >
+                {uploadingImage ? 'Subiendo…' : '+ Subir foto'}
+              </button>
+              <span className="text-[0.65rem] text-neutral-400">
+                JPEG, PNG, WebP o GIF · máx. 8 MB
+                {editingProductId
+                  ? ' · se sube de inmediato'
+                  : ' · se sube al guardar'}
+              </span>
+            </div>
+          </div>
+          {/* ─────────────────────────────────────────────────────────────── */}
+
           <div>
             <p className="mb-2 text-[0.6rem] font-semibold uppercase tracking-widest text-neutral-500">Categorías</p>
             <div className="flex flex-wrap gap-2">
@@ -593,3 +753,4 @@ export function AdminProductsPage() {
     </div>
   )
 }
+

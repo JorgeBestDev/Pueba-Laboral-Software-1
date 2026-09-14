@@ -70,14 +70,23 @@ def serialize_product(
                 "alt_text": image.alt_text,
                 "sort_order": image.sort_order,
             }
-            for image in product.images
+            for image in sorted(product.images, key=lambda i: i.sort_order)
         ]
         data["variants"] = [serialize_variant(variant) for variant in product.variants]
     elif include_variants:
-        # The list endpoint stays lightweight by skipping images, but still needs a
-        # variant id/price so the catalog grid can add to cart without a second
-        # round trip to fetch the full product detail by slug.
+        # The list endpoint includes the first image so the catalog grid can
+        # display the product thumbnail without a second round-trip.
         data["variants"] = [serialize_variant(variant) for variant in product.variants]
+        images_sorted = sorted(product.images, key=lambda i: i.sort_order)
+        data["images"] = [
+            {
+                "id": image.id,
+                "url": image.url,
+                "alt_text": image.alt_text,
+                "sort_order": image.sort_order,
+            }
+            for image in images_sorted[:1]  # only the primary image for the grid
+        ]
     return data
 
 

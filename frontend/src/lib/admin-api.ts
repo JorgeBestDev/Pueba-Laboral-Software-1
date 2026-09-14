@@ -265,7 +265,15 @@ export type AdminProduct = {
   is_featured: boolean
   categories: AdminCategory[]
   variants?: AdminVariant[]
+  images?: AdminProductImage[]
   reviews: { count: number; average: number | null }
+}
+
+export type AdminProductImage = {
+  id: number
+  url: string
+  alt_text: string | null
+  sort_order: number
 }
 
 export async function listAdminCategories(): Promise<AdminCategory[]> {
@@ -352,13 +360,55 @@ export async function updateAdminVariant(id: number, input: Partial<{ sku: strin
 }
 
 // ---------------------------------------------------------------------------
-// Customers (users)
+// Product images
 // ---------------------------------------------------------------------------
 
-export async function listAdminUsers(params: { q?: string; role?: string; page?: number } = {}): Promise<PagedResponse<AdminUser>> {
+export async function uploadAdminProductImage(
+  productId: number,
+  file: File,
+  altText?: string,
+): Promise<AdminProductImage> {
+  const tokens = getStoredAdminTokens()
+  const formData = new FormData()
+  formData.append('image', file)
+  if (altText) formData.append('alt_text', altText)
+
+  const headers = new Headers()
+  if (tokens?.access_token) headers.set('Authorization', `Bearer ${tokens.access_token}`)
+  // Do NOT set Content-Type — the browser must set it with the multipart boundary
+
+  const response = await fetch(
+    `${API_URL}/admin/catalog/products/${productId}/images`,
+    { method: 'POST', headers, body: formData },
+  )
+
+  let body: unknown = null
+  try { body = await response.json() } catch { body = null }
+
+  if (!response.ok) {
+    const errorBody = body as { error?: { message?: string; code?: string } } | null
+    throw new AdminApiError(
+      errorBody?.error?.message ?? 'Error al subir la imagen',
+      response.status,
+      errorBody?.error?.code ?? 'upload_error',
+    )
+  }
+
+  return (body as { data: AdminProductImage }).data
+}
+
+export async function deleteAdminProductImage(imageId: number): Promise<void> {
+  await adminFetch<unknown>(`/admin/catalog/images/${imageId}`, { method: 'DELETE' })
+}
+
+
+export async function listAdminUsers(
+  params: { q?: string; role?: string; page?: number; is_active?: boolean } = {},
+): Promise<PagedResponse<AdminUser>> {
   const query = new URLSearchParams({ page: String(params.page ?? 1) })
   if (params.q) query.set('q', params.q)
   if (params.role) query.set('role', params.role)
+  if (params.is_active !== undefined) query.set('is_active', String(params.is_active))
   return adminFetch<PagedResponse<AdminUser>>(`/admin/users?${query.toString()}`, {})
 }
 

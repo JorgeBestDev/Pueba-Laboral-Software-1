@@ -4,6 +4,7 @@ from app.api.auth import admin_required
 from app.api.serializers import serialize_category, serialize_product, serialize_variant
 from app.schemas.validation import require_object
 from app.services.catalog import AdminCatalogService
+from app.services.catalog.image_upload_service import delete_product_image, save_product_image
 
 admin_catalog_bp = Blueprint("admin_catalog", __name__, url_prefix="/admin/catalog")
 admin_catalog_service = AdminCatalogService()
@@ -109,3 +110,55 @@ def update_variant(variant_id: int):
         variant_id, require_object(request.get_json(silent=True))
     )
     return jsonify({"data": serialize_variant(variant)})
+
+
+# ---------------------------------------------------------------------------
+# Product images
+# ---------------------------------------------------------------------------
+
+@admin_catalog_bp.post("/products/<int:product_id>/images")
+@admin_required
+def upload_product_image(product_id: int):
+    """Upload a product image.
+
+    Expects a multipart/form-data request with:
+    - ``image`` — the image file (JPEG, PNG, WebP, or GIF, max 8 MB)
+    - ``alt_text`` — optional alt text (form field)
+
+    The image is cover-cropped to the configured target dimensions and stored
+    as a JPEG in ``UPLOAD_FOLDER``.  The resulting URL is saved in the database
+    and returned in the response.
+    """
+    file = request.files.get("image")
+    if file is None:
+        return jsonify({"error": {"code": "missing_file", "message": "No image file provided"}}), 400
+
+    alt_text = request.form.get("alt_text") or None
+    image_record = save_product_image(
+        product_id=product_id,
+        file_stream=file.stream,
+        mime_type=file.mimetype,
+        original_filename=file.filename or "upload",
+        alt_text=alt_text,
+    )
+    return jsonify({
+        "data": {
+            "id": image_record.id,
+            "url": image_record.url,
+            "alt_text": image_record.alt_text,
+            "sort_order": image_record.sort_order,
+        }
+    }), 201
+
+
+@admin_catalog_bp.delete("/images/<int:image_id>")
+@admin_required
+def delete_image(image_id: int):
+    """Remove a product image record and delete the file from disk."""
+    image_record = delete_product_image(image_id)
+    return jsonify({
+        "data": {
+            "id": image_record.id,
+            "url": image_record.url,
+        }
+    })

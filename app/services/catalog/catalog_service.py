@@ -56,6 +56,7 @@ class CatalogService:
                 selectinload(Product.categories),
                 selectinload(Product.reviews),
                 selectinload(Product.variants),
+                selectinload(Product.images),
             )
             .offset((page - 1) * per_page)
             .limit(per_page)

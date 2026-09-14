@@ -3,7 +3,7 @@ from decimal import Decimal
 import click
 
 from app import db
-from app.models import Category, Product, ProductVariant, User
+from app.models import Category, Product, ProductVariant, User, UserRole
 
 
 def register_commands(app):
@@ -53,6 +53,19 @@ def register_commands(app):
             )
             user.set_password("demo-password")
             db.session.add(user)
+
+        admin = db.session.scalar(
+            db.select(User).where(User.email == "admin@vokter.com")
+        )
+        if admin is None:
+            admin = User(
+                email="admin@vokter.com",
+                first_name="Admin",
+                last_name="Vokter",
+                role=UserRole.ADMIN,
+            )
+            admin.set_password("admin-password")
+            db.session.add(admin)
 
         db.session.commit()
         click.echo("Demo data seeded successfully.")
