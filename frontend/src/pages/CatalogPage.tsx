@@ -344,6 +344,8 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
               <option value="newest">Más recientes</option>
               <option value="price_asc">Precio: menor a mayor</option>
               <option value="price_desc">Precio: mayor a menor</option>
+              <option value="best_selling">Más vendidos</option>
+              <option value="top_rated">Mejor calificados</option>
               <option value="name">Nombre</option>
             </select>
             <label className="flex cursor-pointer items-center gap-2 text-xs uppercase tracking-wider text-neutral-600">

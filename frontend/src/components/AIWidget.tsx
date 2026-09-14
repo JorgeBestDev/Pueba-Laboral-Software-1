@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { createAiInteraction } from '../lib/api'
 import { GlassButton, GlassInput, GlassPanel } from './ui'
 
@@ -15,6 +16,99 @@ const SUGGESTIONS = [
   'Busco algo económico y disponible',
   '¿Cómo funcionan los envíos?',
 ]
+
+// ---------------------------------------------------------------------------
+// Minimal Markdown renderer (bold + links only — no extra deps)
+// Handles: **bold**, [text](url), and plain text.
+// Internal links (same host or relative) use React Router <Link>.
+// ---------------------------------------------------------------------------
+function MarkdownLine({ text }: { text: string }) {
+  // Split on **bold** and [text](url) tokens
+  const tokens = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/)
+  return (
+    <>
+      {tokens.map((token, i) => {
+        if (token.startsWith('**') && token.endsWith('**')) {
+          return <strong key={i}>{token.slice(2, -2)}</strong>
+        }
+        const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+        if (linkMatch) {
+          const [, label, href] = linkMatch
+          // Determine if internal (relative or same origin)
+          const isInternal =
+            href.startsWith('/') ||
+            href.startsWith(window.location.origin)
+          const path = isInternal
+            ? href.replace(window.location.origin, '')
+            : href
+          return isInternal ? (
+            <Link
+              key={i}
+              to={path}
+              className="font-medium text-black underline underline-offset-2 hover:text-neutral-600"
+            >
+              {label}
+            </Link>
+          ) : (
+            <a
+              key={i}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-black underline underline-offset-2 hover:text-neutral-600"
+            >
+              {label}
+            </a>
+          )
+        }
+        return <span key={i}>{token}</span>
+      })}
+    </>
+  )
+}
+
+function MarkdownMessage({ content }: { content: string }) {
+  // Split into lines; lines starting with "- " become list items
+  const lines = content.split('\n')
+  const elements: React.ReactNode[] = []
+  let listItems: string[] = []
+
+  const flushList = (key: number) => {
+    if (listItems.length === 0) return
+    elements.push(
+      <ul key={`ul-${key}`} className="my-1 space-y-0.5 pl-4">
+        {listItems.map((item, idx) => (
+          <li key={idx} className="list-disc">
+            <MarkdownLine text={item} />
+          </li>
+        ))}
+      </ul>,
+    )
+    listItems = []
+  }
+
+  lines.forEach((line, idx) => {
+    if (line.startsWith('- ') || line.startsWith('• ')) {
+      listItems.push(line.replace(/^[-•]\s/, ''))
+    } else {
+      flushList(idx)
+      if (line.trim() === '') {
+        elements.push(<br key={idx} />)
+      } else {
+        elements.push(
+          <p key={idx} className="leading-relaxed">
+            <MarkdownLine text={line} />
+          </p>,
+        )
+      }
+    }
+  })
+  flushList(lines.length)
+
+  return <div className="space-y-0.5 text-sm">{elements}</div>
+}
+
+// ---------------------------------------------------------------------------
 
 export function AIWidget() {
   const [open, setOpen] = useState(false)
@@ -109,13 +203,17 @@ export function AIWidget() {
                 className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}
               >
                 <div
-                  className={`max-w-[88%] rounded-sm px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-line ${
+                  className={`max-w-[88%] rounded-sm px-3.5 py-2.5 leading-relaxed ${
                     message.role === 'user'
-                      ? 'bg-black text-white shadow-sm'
+                      ? 'bg-black text-white shadow-sm text-sm whitespace-pre-line'
                       : 'border border-neutral-200 bg-neutral-50 text-neutral-800'
                   }`}
                 >
-                  {message.content}
+                  {message.role === 'assistant' ? (
+                    <MarkdownMessage content={message.content} />
+                  ) : (
+                    message.content
+                  )}
                 </div>
                 {message.model && message.role === 'assistant' && (
                   <span className="mt-1 text-[0.6rem] text-neutral-400 uppercase tracking-wider">
@@ -180,3 +278,4 @@ export function AIWidget() {
     </div>
   )
 }
+

@@ -3,6 +3,8 @@ from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import Category, Product, ProductVariant
+from app.models.commerce.order import OrderItem
+from app.models.social.review import Review
 from app.services.exceptions import ResourceNotFoundError
 
 
@@ -48,10 +50,58 @@ class CatalogService:
             "price_asc": Product.base_price.asc(),
             "price_desc": Product.base_price.desc(),
             "name": Product.name.asc(),
-        }.get(sort, Product.created_at.desc())
+        }.get(sort)
+
+        if order is not None:
+            # Simple column-level sort — apply directly
+            total = db.session.scalar(select(func.count()).select_from(query.subquery())) or 0
+            products = db.session.scalars(
+                query.order_by(order)
+                .options(
+                    selectinload(Product.categories),
+                    selectinload(Product.reviews),
+                    selectinload(Product.variants),
+                    selectinload(Product.images),
+                )
+                .offset((page - 1) * per_page)
+                .limit(per_page)
+            ).all()
+            return products, total
+
+        if sort == "best_selling":
+            # Count order items per product through variants, order by most sold
+            sales_sq = (
+                select(
+                    ProductVariant.product_id,
+                    func.coalesce(func.sum(OrderItem.quantity), 0).label("total_sold"),
+                )
+                .join(OrderItem, OrderItem.variant_id == ProductVariant.id, isouter=True)
+                .group_by(ProductVariant.product_id)
+                .subquery()
+            )
+            query = query.join(sales_sq, sales_sq.c.product_id == Product.id, isouter=True)
+            order_expr = func.coalesce(sales_sq.c.total_sold, 0).desc()
+
+        elif sort == "top_rated":
+            # Average review rating per product, nulls last
+            rating_sq = (
+                select(
+                    Review.product_id,
+                    func.coalesce(func.avg(Review.rating), 0).label("avg_rating"),
+                )
+                .group_by(Review.product_id)
+                .subquery()
+            )
+            query = query.join(rating_sq, rating_sq.c.product_id == Product.id, isouter=True)
+            order_expr = func.coalesce(rating_sq.c.avg_rating, 0).desc()
+
+        else:
+            # Fallback for unknown sort values
+            order_expr = Product.created_at.desc()
+
         total = db.session.scalar(select(func.count()).select_from(query.subquery())) or 0
         products = db.session.scalars(
-            query.order_by(order)
+            query.order_by(order_expr)
             .options(
                 selectinload(Product.categories),
                 selectinload(Product.reviews),
