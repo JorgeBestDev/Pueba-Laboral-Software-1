@@ -215,15 +215,15 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
           </div>
         </div>
 
-        <form onSubmit={submitSearch} className="mx-auto mt-10 flex max-w-md gap-0 border border-neutral-300">
+        <form onSubmit={submitSearch} className="mx-auto mt-10 flex max-w-md items-stretch gap-0">
           <GlassInput
             id="hero-search"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
             placeholder="Buscar productos, marcas o SKUs..."
-            className="border-0"
+            className="border border-neutral-300 border-r-0 !py-3"
           />
-          <GlassButton type="submit" className="shrink-0 rounded-none">
+          <GlassButton type="submit" className="shrink-0 !py-3">
             Buscar
           </GlassButton>
         </form>
@@ -306,14 +306,14 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
           <div className="flex items-center gap-[5%]">
 
             {/* Search — 50% */}
-            <form onSubmit={submitSearch} className="flex w-[50%] shrink-0 gap-0 border border-neutral-300">
+            <form onSubmit={submitSearch} className="flex w-[50%] shrink-0 items-stretch gap-0">
               <GlassInput
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Buscar productos, marcas o SKUs..."
-                className="border-0 !py-2 text-xs"
+                className="border border-neutral-300 border-r-0 !py-3 text-xs"
               />
-              <GlassButton type="submit" className="shrink-0 rounded-none !py-2 text-xs">
+              <GlassButton type="submit" className="shrink-0 !py-3 text-xs">
                 Buscar
               </GlassButton>
             </form>
