@@ -458,25 +458,113 @@ El login incluye un **captcha matemático** anti-bot generado internamente (no r
 
 ## Evidencias visuales
 
-El requerimiento recomienda incluir evidencias visuales. Para la entrega final
-conviene agregar capturas optimizadas en `docs/screenshots/` y enlazarlas aquí.
-Como mínimo, se recomiendan:
+Las siguientes evidencias muestran los flujos principales de la solución web,
+el panel administrativo y la aplicación móvil Android. Los archivos originales
+se encuentran en [`docs/screenshots/`](<C:/Users/Jorge/Documents/Programacion/Entrevista Main/docs/screenshots/>).
 
-1. Catálogo web con filtros y tarjetas de producto.
-2. Carrito o checkout web.
-3. Asistente IA recomendando un producto.
-4. Panel de administración.
-5. Catálogo de la aplicación Android.
-6. Perfil móvil con direcciones y lista de deseos.
-7. Modal web de descarga con código QR.
+### Aplicación web
 
-Los GIF no son obligatorios. Para una prueba técnica, las capturas PNG o
-WebP suelen ser preferibles porque cargan más rápido y permiten revisar una
-funcionalidad concreta. Un GIF corto solo aporta valor para flujos como
-agregar al carrito, cambiar una variante o abrir el modal de descarga.
+#### Inicio, catálogo y producto
 
-No se deben incluir capturas con contraseñas, tokens, claves API, correos
-personales ni valores de archivos `.env`.
+<p align="center">
+  <img src="docs/screenshots/landing.PNG" alt="Página de inicio de Vokter" width="49%">
+  <img src="docs/screenshots/products.PNG" alt="Catálogo de productos" width="49%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/product_detail.PNG" alt="Detalle de producto" width="49%">
+  <img src="docs/screenshots/features.PNG" alt="Productos destacados y funcionalidades" width="49%">
+</p>
+
+#### Carrito, checkout y pedidos
+
+<p align="center">
+  <img src="docs/screenshots/cart.PNG" alt="Carrito de compras con variantes e imágenes" width="32%">
+  <img src="docs/screenshots/checkout.PNG" alt="Resumen de checkout" width="32%">
+  <img src="docs/screenshots/payment_method_checkout.PNG" alt="Método de pago en checkout" width="32%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/addresses_checkout.PNG" alt="Dirección durante el checkout" width="49%">
+  <img src="docs/screenshots/active_orders.PNG" alt="Pedidos activos del usuario" width="49%">
+</p>
+
+<details>
+<summary>Ver seguimiento, cancelación y confirmación de pedidos</summary>
+
+<p align="center">
+  <img src="docs/screenshots/user_orders.PNG" alt="Historial de pedidos" width="32%">
+  <img src="docs/screenshots/user_order_placed.PNG" alt="Pedido creado" width="32%">
+  <img src="docs/screenshots/user_order_status.PNG" alt="Estado de pedido" width="32%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/user_order_cancelled.PNG" alt="Pedido cancelado" width="49%">
+</p>
+</details>
+
+#### Cuenta, direcciones y lista de deseos
+
+<p align="center">
+  <img src="docs/screenshots/user_account.PNG" alt="Cuenta del usuario" width="32%">
+  <img src="docs/screenshots/user_addresses.PNG" alt="Direcciones guardadas" width="32%">
+  <img src="docs/screenshots/user_wishlist.PNG" alt="Lista de deseos con imágenes" width="32%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/user_reset_password.PNG" alt="Recuperación de contraseña" width="49%">
+</p>
+
+#### Asistente IA y descarga móvil
+
+<p align="center">
+  <img src="docs/screenshots/IA_assistant.PNG" alt="Asistente IA de Vokter" width="49%">
+  <img src="docs/screenshots/app_download.PNG" alt="Modal de descarga del APK con código QR" width="49%">
+</p>
+
+### Panel administrativo
+
+<p align="center">
+  <img src="docs/screenshots/admin_login.PNG" alt="Inicio de sesión administrativo" width="32%">
+  <img src="docs/screenshots/admin_dashboard.PNG" alt="Dashboard administrativo" width="66%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/admin_products.PNG" alt="Gestión administrativa de productos" width="49%">
+  <img src="docs/screenshots/edit_products.PNG" alt="Edición de productos" width="49%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/admin_categories.PNG" alt="Gestión de categorías" width="32%">
+  <img src="docs/screenshots/admin_customers.PNG" alt="Gestión de clientes" width="32%">
+  <img src="docs/screenshots/admin_user_history.PNG" alt="Historial de usuario" width="32%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/admin_order_status.PNG" alt="Actualización del estado de pedidos" width="49%">
+</p>
+
+### Aplicación móvil Android
+
+<p align="center">
+  <img src="docs/screenshots/mobile_landing.PNG" alt="Catálogo móvil" width="32%">
+  <img src="docs/screenshots/mobile_producto_details.PNG" alt="Detalle de producto móvil" width="32%">
+  <img src="docs/screenshots/mobile_cart.PNG" alt="Carrito móvil" width="32%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/mobile_addresses_checkout.PNG" alt="Direcciones y checkout móvil" width="32%">
+  <img src="docs/screenshots/mobile_user_info.PNG" alt="Perfil móvil" width="32%">
+  <img src="docs/screenshots/mobile_wishlist.PNG" alt="Lista de deseos móvil" width="32%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/mobile_IA_assistant.PNG" alt="Asistente IA móvil" width="32%">
+</p>
+
+Los GIF no son obligatorios. Las capturas PNG son suficientes para revisar la
+propuesta y permiten identificar cada funcionalidad de forma independiente.
+No se incluyen claves API, tokens ni contraseñas en las evidencias.
 
 ---
 
