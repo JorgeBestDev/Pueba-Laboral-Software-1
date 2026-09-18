@@ -94,7 +94,7 @@ El proyecto adopta una **arquitectura en capas** con separación clara de respon
 - **Servicios como núcleo de negocio**: validaciones, reglas de inventario, transacciones y lógica de dominio viven exclusivamente en `app/services/`.
 - **Serialización centralizada**: `app/api/serializers.py` convierte modelos ORM a dicts JSON, evitando duplicación entre endpoints.
 - **IA con fallback en cadena**: Groq → Gemini → motor de reglas local. Si un proveedor falla, el siguiente toma el relevo automáticamente.
-- **Imágenes almacenadas localmente**: Pillow aplica cover-crop al subir (escala + recorte centrado) para que la imagen siempre encaje en el contenedor. Las URLs se guardan en base de datos y el backend las sirve en `/uploads/<filename>`.
+- **Imágenes persistentes**: Pillow aplica cover-crop al subir y Cloudinary almacena las imágenes en producción. En desarrollo, si Cloudinary no está configurado, se utiliza `instance/uploads/` como fallback local.
 
 ---
 
@@ -140,7 +140,7 @@ Entrevista Main/
 │   │   ├── catalog/
 │   │   │   ├── catalog_service.py        # Listado, búsqueda y filtros del catálogo público
 │   │   │   ├── admin_catalog_service.py  # CRUD admin de productos y categorías
-│   │   │   └── image_upload_service.py   # Procesamiento (cover-crop Pillow) y persistencia de imágenes
+│   │   │   └── image_upload_service.py   # Procesamiento y almacenamiento Cloudinary/local
 │   │   ├── commerce/           # OrderService, CartService
 │   │   ├── identity/           # AuthService, UserService
 │   │   ├── social/             # ReviewService, WishlistService
@@ -189,7 +189,7 @@ Entrevista Main/
 │   ├── src/                    # Cliente API, contextos y componentes
 │   ├── app.json                # Configuración Expo
 │   └── eas.json                # Perfil EAS para generar APK
-├── instance/                   # Datos locales: vokter.db (SQLite) + uploads/
+├── instance/                   # Datos locales: vokter.db (SQLite) + uploads/ (fallback)
 ├── tests/                      # Suite de pruebas unitarias e integración
 ├── run.py                      # Punto de entrada WSGI
 ├── requirements.txt            # Dependencias Python
@@ -293,6 +293,14 @@ UPLOAD_FOLDER=instance/uploads
 PRODUCT_IMAGE_WIDTH=800
 PRODUCT_IMAGE_HEIGHT=800
 MAX_CONTENT_LENGTH=8388608   # 8 MB
+
+# Cloudinary — requerido en producción para que las imágenes sobrevivan a los
+# reinicios y despliegues de Render. Usa CLOUDINARY_URL o las tres credenciales.
+CLOUDINARY_URL=
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+CLOUDINARY_FOLDER=vokter/products
 ```
 
 > Si ninguna clave de IA está configurada, el asistente responde igualmente usando un motor de reglas local que consulta el catálogo directamente en la base de datos.
@@ -516,6 +524,9 @@ El proyecto incluye `render.yaml` preconfigurado para [Render.com](https://rende
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | Credenciales SMTP |
 | `MAIL_USE_TLS` / `MAIL_USE_SSL` | Seguridad de la conexión SMTP |
 | `MAIL_DEFAULT_SENDER` | Remitente de recuperación |
+| `CLOUDINARY_URL` | URL de conexión de Cloudinary (recomendado) |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Credenciales alternativas de Cloudinary |
+| `CLOUDINARY_FOLDER` | Carpeta de assets, por defecto `vokter/products` |
 | `GEMINI_API_KEY` | Clave de Google Gemini (opcional) |
 | `GEMINI_MODEL` | Modelo Gemini habilitado para la cuenta |
 | `AI_PROVIDER_TIMEOUT_SECONDS` | Tiempo máximo de espera por proveedor externo |
@@ -529,6 +540,20 @@ El proyecto incluye `render.yaml` preconfigurado para [Render.com](https://rende
 flask db upgrade
 flask seed
 ```
+
+### Configurar Cloudinary
+
+1. Crea una cuenta en [Cloudinary](https://cloudinary.com/).
+2. En Render agrega `CLOUDINARY_URL` con la URL de conexión del panel de
+   Cloudinary. No la incluyas en Git ni en el frontend.
+3. Ejecuta `flask db upgrade` para agregar el identificador de asset de
+   Cloudinary a `product_images`.
+4. Sube nuevamente las imágenes del catálogo desde el panel administrativo.
+
+Las nuevas imágenes se procesan como JPEG, se suben a Cloudinary y guardan su
+`secure_url` directamente en la base de datos. Las imágenes antiguas que solo
+apuntan a `/uploads/...` deben volver a subirse porque sus archivos locales no
+se conservan en Render.
 
 ### Build de producción del frontend
 

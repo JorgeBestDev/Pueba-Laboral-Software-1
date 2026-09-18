@@ -124,8 +124,9 @@ def upload_product_image(product_id: int):
     - ``alt_text`` — optional alt text (form field)
 
     The image is cover-cropped to the configured target dimensions and stored
-    as a JPEG in ``UPLOAD_FOLDER``.  The resulting URL is saved in the database
-    and returned in the response.
+    in Cloudinary when configured. Local ``UPLOAD_FOLDER`` storage remains the
+    development fallback. The resulting URL is saved in the database and
+    returned in the response.
     """
     file = request.files.get("image")
     if file is None:
@@ -152,7 +153,7 @@ def upload_product_image(product_id: int):
 @admin_catalog_bp.delete("/images/<int:image_id>")
 @admin_required
 def delete_image(image_id: int):
-    """Remove a product image record and delete the file from disk."""
+    """Remove a product image record and its Cloudinary/local asset."""
     image_record = delete_product_image(image_id)
     return jsonify({
         "data": {

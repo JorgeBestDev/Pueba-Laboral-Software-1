@@ -30,3 +30,8 @@ class AuthenticationError(ServiceError):
 class DeliveryError(ServiceError):
     code = "delivery_unavailable"
     status_code = 503
+
+
+class StorageError(ServiceError):
+    code = "storage_unavailable"
+    status_code = 503

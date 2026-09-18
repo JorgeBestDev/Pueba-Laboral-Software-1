@@ -30,6 +30,10 @@ services:
         sync: false
       - key: MAIL_DEFAULT_SENDER
         sync: false
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: vokter/products
 
   # Frontend Web (React + Vite + Tailwind)
   - type: web

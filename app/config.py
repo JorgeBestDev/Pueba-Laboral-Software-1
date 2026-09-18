@@ -8,7 +8,7 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
+# Normalize the database URL to use the psycopg v3 driver for PostgreSQL.
 def normalize_database_url(url: str) -> str:
     """Use the psycopg v3 driver declared by this project for PostgreSQL."""
     if url.startswith("postgres://"):
@@ -28,6 +28,7 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    
     CORS_ORIGINS = tuple(
         origin.strip()
         for origin in os.getenv("CORS_ORIGINS", FRONTEND_URL).split(",")
@@ -35,9 +36,11 @@ class Config:
     )
     CORS_SUPPORTS_CREDENTIALS = os.getenv("CORS_SUPPORTS_CREDENTIALS", "false").lower() == "true"
     CORS_MAX_AGE = int(os.getenv("CORS_MAX_AGE", "600"))
+    # Flask-Mail configuration
     JSON_SORT_KEYS = False
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=2)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
+    # AI provider configuration
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
     GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
@@ -51,10 +54,18 @@ class Config:
     ADMIN_LOGIN_RATE_LIMIT = os.getenv("ADMIN_LOGIN_RATE_LIMIT", "8 per minute")
     ADMIN_CAPTCHA_RATE_LIMIT = os.getenv("ADMIN_CAPTCHA_RATE_LIMIT", "30 per minute")
     RATELIMIT_ENABLED = os.getenv("RATELIMIT_ENABLED", "true").lower() == "true"
+    # File upload configuration
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", str(BASE_DIR / "instance" / "uploads"))
     PRODUCT_IMAGE_WIDTH = int(os.getenv("PRODUCT_IMAGE_WIDTH", "800"))
     PRODUCT_IMAGE_HEIGHT = int(os.getenv("PRODUCT_IMAGE_HEIGHT", "800"))
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", str(8 * 1024 * 1024)))  # 8 MB
+    # Cloudinary configuration
+    CLOUDINARY_URL = os.getenv("CLOUDINARY_URL", "")
+    CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+    CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "")
+    CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "")
+    CLOUDINARY_FOLDER = os.getenv("CLOUDINARY_FOLDER", "vokter/products")
+    # Email configuration
     MAIL_SERVER = os.getenv("MAIL_SERVER", "")
     MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))
     MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
@@ -62,6 +73,7 @@ class Config:
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", MAIL_USERNAME or "no-reply@vokter.local")
+    # Password reset configuration
     PASSWORD_RESET_TTL_SECONDS = int(os.getenv("PASSWORD_RESET_TTL_SECONDS", "1800"))
     PASSWORD_RESET_URL = os.getenv(
         "PASSWORD_RESET_URL",

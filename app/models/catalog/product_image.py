@@ -11,6 +11,7 @@ class ProductImage(TimestampMixin, db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     url: Mapped[str] = mapped_column(String(500), nullable=False)
+    cloudinary_public_id: Mapped[str | None] = mapped_column(String(255))
     alt_text: Mapped[str | None] = mapped_column(String(255))
     sort_order: Mapped[int] = mapped_column(default=0, nullable=False)
 
