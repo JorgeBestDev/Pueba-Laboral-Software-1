@@ -107,6 +107,50 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(second.status_code, 201)
         self.assertEqual(first.get_json()["data"]["id"], second.get_json()["data"]["id"])
 
+    def test_cart_item_includes_customer_facing_product_details(self):
+        cart = self.client.post("/api/v1/carts", json={"session_key": "cart-details"}).get_json()["data"]
+        response = self.client.post(
+            f"/api/v1/carts/{cart['id']}/items",
+            headers={"X-Cart-Session": "cart-details"},
+            json={"variant_id": self.variant.id, "quantity": 1},
+        )
+
+        self.assertEqual(response.status_code, 201)
+        item = response.get_json()["data"]["items"][0]
+        self.assertEqual(item["product_name"], "Test product")
+        self.assertEqual(item["variant_name"], "Default")
+        self.assertIsNone(item["image_url"])
+
+    def test_cart_item_variant_can_be_switched_within_same_product(self):
+        alternate = ProductVariant(
+            product_id=self.variant.product_id,
+            sku="TEST-002",
+            name="Alternate",
+            price=Decimal("12.00"),
+            stock_quantity=3,
+        )
+        db.session.add(alternate)
+        db.session.commit()
+        cart = self.client.post("/api/v1/carts", json={"session_key": "variant-switch"}).get_json()["data"]
+        added = self.client.post(
+            f"/api/v1/carts/{cart['id']}/items",
+            headers={"X-Cart-Session": "variant-switch"},
+            json={"variant_id": self.variant.id, "quantity": 2},
+        ).get_json()["data"]
+
+        response = self.client.patch(
+            f"/api/v1/carts/{cart['id']}/items/{added['items'][0]['id']}/variant",
+            headers={"X-Cart-Session": "variant-switch"},
+            json={"variant_id": alternate.id},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        item = response.get_json()["data"]["items"][0]
+        self.assertEqual(item["variant_id"], alternate.id)
+        self.assertEqual(item["variant_name"], "Alternate")
+        self.assertEqual(item["quantity"], 2)
+        self.assertEqual(item["unit_price"], "12.00")
+
     def test_checkout_creates_order_and_decreases_stock(self):
         registration = self.client.post(
             "/api/v1/auth/register",

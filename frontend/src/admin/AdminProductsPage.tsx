@@ -56,6 +56,7 @@ export function AdminProductsPage() {
 
   const [productModalOpen, setProductModalOpen] = useState(false)
   const [editingProductId, setEditingProductId] = useState<number | null>(null)
+  const [modalLoading, setModalLoading] = useState(false)
   const [form, setForm] = useState<ProductFormState>(EMPTY_PRODUCT_FORM)
   const [variants, setVariants] = useState<adminApi.AdminVariant[]>([])
   const [saving, setSaving] = useState(false)
@@ -112,9 +113,17 @@ export function AdminProductsPage() {
   }
 
   const openEditProduct = async (id: number) => {
+    // Open the modal immediately with a blank/loading form so the user gets
+    // instant visual feedback on click, then populate once the fetch resolves.
+    setEditingProductId(id)
+    setForm(EMPTY_PRODUCT_FORM)
+    setVariants([])
+    setImages([])
+    setPendingImage(null)
+    setModalLoading(true)
+    setProductModalOpen(true)
     try {
       const product = await adminApi.getAdminProduct(id)
-      setEditingProductId(product.id)
       setForm({
         name: product.name,
         slug: product.slug,
@@ -127,10 +136,11 @@ export function AdminProductsPage() {
       })
       setVariants(product.variants ?? [])
       setImages(product.images ?? [])
-      setPendingImage(null)
-      setProductModalOpen(true)
     } catch (err) {
+      setProductModalOpen(false)
       setError(err instanceof adminApi.AdminApiError ? err.message : 'No se pudo cargar el producto')
+    } finally {
+      setModalLoading(false)
     }
   }
 
@@ -516,6 +526,22 @@ export function AdminProductsPage() {
           </button>
         </div>
 
+        {/* Skeleton shown while product data is loading in edit mode */}
+        {modalLoading ? (
+          <div className="mt-4 space-y-3 animate-pulse">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-10 rounded bg-neutral-100" />
+              ))}
+            </div>
+            <div className="h-20 rounded bg-neutral-100" />
+            <div className="h-10 rounded bg-neutral-100" />
+            <div className="flex gap-2">
+              <div className="h-8 w-24 rounded bg-neutral-100" />
+              <div className="h-8 w-24 rounded bg-neutral-100" />
+            </div>
+          </div>
+        ) : (
         <form onSubmit={handleProductSubmit} className="mt-4 space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <input
@@ -749,6 +775,7 @@ export function AdminProductsPage() {
             </button>
           </div>
         </form>
+        )}
       </Modal>
     </div>
   )

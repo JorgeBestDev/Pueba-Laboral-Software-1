@@ -91,15 +91,33 @@ def serialize_product(
 
 
 def serialize_cart(cart: Cart) -> dict[str, Any]:
-    items = [
-        {
-            "id": item.id,
-            "variant_id": item.variant_id,
-            "quantity": item.quantity,
-            "unit_price": _decimal(item.unit_price),
-        }
-        for item in cart.items
-    ]
+    items = []
+    for item in cart.items:
+        product = item.variant.product
+        primary_image = min(product.images, key=lambda image: image.sort_order, default=None)
+        available_variants = [
+            {
+                "id": variant.id,
+                "name": variant.name,
+                "price": _decimal(variant.price),
+                "stock_quantity": variant.stock_quantity,
+            }
+            for variant in product.variants
+            if variant.is_active and variant.stock_quantity > 0
+        ]
+        items.append(
+            {
+                "id": item.id,
+                "variant_id": item.variant_id,
+                "variant_name": item.variant.name,
+                "product_name": product.name,
+                "product_slug": product.slug,
+                "image_url": primary_image.url if primary_image else None,
+                "available_variants": available_variants,
+                "quantity": item.quantity,
+                "unit_price": _decimal(item.unit_price),
+            }
+        )
     total = Decimal("0")
     for item in items:
         unit_price = Decimal(item["unit_price"]) if item["unit_price"] else Decimal("0")

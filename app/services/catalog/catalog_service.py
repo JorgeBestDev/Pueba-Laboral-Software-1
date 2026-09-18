@@ -50,6 +50,7 @@ class CatalogService:
             "price_asc": Product.base_price.asc(),
             "price_desc": Product.base_price.desc(),
             "name": Product.name.asc(),
+            "name_desc": Product.name.desc(),
         }.get(sort)
 
         if order is not None:
@@ -82,7 +83,7 @@ class CatalogService:
             query = query.join(sales_sq, sales_sq.c.product_id == Product.id, isouter=True)
             order_expr = func.coalesce(sales_sq.c.total_sold, 0).desc()
 
-        elif sort == "top_rated":
+        elif sort in {"top_rated", "rating_asc"}:
             # Average review rating per product, nulls last
             rating_sq = (
                 select(
@@ -93,7 +94,11 @@ class CatalogService:
                 .subquery()
             )
             query = query.join(rating_sq, rating_sq.c.product_id == Product.id, isouter=True)
-            order_expr = func.coalesce(rating_sq.c.avg_rating, 0).desc()
+            order_expr = (
+                func.coalesce(rating_sq.c.avg_rating, 0).asc()
+                if sort == "rating_asc"
+                else func.coalesce(rating_sq.c.avg_rating, 0).desc()
+            )
 
         else:
             # Fallback for unknown sort values

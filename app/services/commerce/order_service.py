@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import (
@@ -169,8 +170,18 @@ class OrderService:
         return order
 
     def get_order_any(self, order_id: int) -> Order:
-        """Admin-only lookup: any order regardless of owner."""
-        order = db.session.get(Order, order_id)
+        """Admin-only lookup: any order regardless of owner, with all relations eager-loaded."""
+        order = db.session.scalar(
+            select(Order)
+            .where(Order.id == order_id)
+            .options(
+                selectinload(Order.user),
+                selectinload(Order.items),
+                selectinload(Order.payment),
+                selectinload(Order.shipment),
+                selectinload(Order.status_history),
+            )
+        )
         if order is None:
             raise ResourceNotFoundError("Order not found")
         return order
@@ -220,6 +231,13 @@ class OrderService:
         orders = db.session.scalars(
             query
             .order_by(Order.created_at.desc())
+            .options(
+                selectinload(Order.user),
+                selectinload(Order.items),
+                selectinload(Order.payment),
+                selectinload(Order.shipment),
+                selectinload(Order.status_history),
+            )
             .offset((page - 1) * per_page)
             .limit(per_page)
         ).all()

@@ -54,6 +54,7 @@ export function AdminOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<adminApi.AdminOrder | null>(null)
+  const [modalLoading, setModalLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const load = () => {
@@ -74,13 +75,16 @@ export function AdminOrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, status])
 
-  const openDetail = async (id: number) => {
-    try {
-      const order = await adminApi.getAdminOrder(id)
-      setSelected(order)
-    } catch (err) {
-      setError(err instanceof adminApi.AdminApiError ? err.message : 'No se pudo cargar el pedido')
-    }
+  const openDetail = (order: adminApi.AdminOrder) => {
+    // Open immediately with the data we already have from the list — the user
+    // sees the modal at once.  Then fetch the full detail in the background to
+    // populate status_history and any fields the list omits.
+    setSelected(order)
+    setModalLoading(true)
+    adminApi.getAdminOrder(order.id)
+      .then((full) => setSelected(full))
+      .catch(() => { /* keep the partial data already shown */ })
+      .finally(() => setModalLoading(false))
   }
 
   const refreshSelected = async () => {
@@ -92,11 +96,14 @@ export function AdminOrdersPage() {
 
   const handleStatusChange = async (value: string) => {
     if (!selected) return
+    // Optimistically update the select so it feels instant
+    setSelected((prev) => prev ? { ...prev, status: value as adminApi.AdminOrder['status'] } : prev)
     setSaving(true)
     try {
       await adminApi.updateAdminOrderStatus(selected.id, value)
       await refreshSelected()
     } catch (err) {
+      await refreshSelected() // revert to server state
       setError(err instanceof adminApi.AdminApiError ? err.message : 'No se pudo actualizar el estado')
     } finally {
       setSaving(false)
@@ -175,7 +182,20 @@ export function AdminOrdersPage() {
 
       <div className="glass-panel overflow-hidden">
         {loading ? (
-          <AdminEmptyState message="Cargando pedidos…" />
+          <div className="animate-pulse space-y-0 divide-y divide-neutral-100">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3">
+                <div className="h-4 w-10 rounded bg-neutral-100" />
+                <div className="flex-1 space-y-1">
+                  <div className="h-3 w-32 rounded bg-neutral-100" />
+                  <div className="h-2 w-24 rounded bg-neutral-100" />
+                </div>
+                <div className="h-5 w-20 rounded bg-neutral-100" />
+                <div className="h-3 w-16 rounded bg-neutral-100" />
+                <div className="h-3 w-24 rounded bg-neutral-100" />
+              </div>
+            ))}
+          </div>
         ) : orders.length === 0 ? (
           <AdminEmptyState message="No se encontraron pedidos con esos filtros." />
         ) : (
@@ -207,7 +227,7 @@ export function AdminOrdersPage() {
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
-                        onClick={() => openDetail(order.id)}
+                        onClick={() => openDetail(order)}
                         className="text-xs font-semibold uppercase tracking-widest underline underline-offset-4"
                       >
                         Ver
@@ -226,7 +246,12 @@ export function AdminOrdersPage() {
         {selected && (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="font-display text-lg">Pedido #{selected.id}</h3>
+              <h3 className="font-display text-lg">
+                Pedido #{selected.id}
+                {modalLoading && (
+                  <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-neutral-300 border-t-black align-middle" />
+                )}
+              </h3>
               <button
                 type="button"
                 onClick={() => setSelected(null)}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { getCategories, getFilters, getProductBySlug, getProducts, recordEvent, resolveMediaUrl, type Category, type Product } from '../lib/api'
+import { getCategories, getFilters, getProducts, recordEvent, resolveMediaUrl, type Category, type Product } from '../lib/api'
 import { useCart } from '../lib/cart-context'
 import { useWishlist } from '../lib/wishlist-context'
 import { useToast } from '../lib/toast-context'
@@ -16,12 +16,15 @@ function ProductCard({ product, compact = false }: { product: Product; compact?:
 
   async function handleAdd(event: React.MouseEvent) {
     event.preventDefault()
+    // Use the variant already present in the product object from the list response.
+    // Only fall back to a network fetch when the list genuinely omitted variants
+    // (shouldn't happen with include_variants=True, but kept as a safety net).
+    const variant = product.variants?.[0]
+    if (!variant) {
+      push('Este producto no tiene variantes disponibles', 'error')
+      return
+    }
     try {
-      const variant = product.variants?.[0] ?? (await getProductBySlug(product.slug)).variants?.[0]
-      if (!variant) {
-        push('Este producto no tiene variantes disponibles', 'error')
-        return
-      }
       await addItem(variant.id, 1, variant.price)
       push('Producto añadido al carrito', 'success')
     } catch {
@@ -121,11 +124,17 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
   const [newOffset, setNewOffset] = useState(0)
 
   useEffect(() => {
-    getCategories().then(setCategories).catch(() => setError('Conecta la API para cargar el catálogo.'))
-    getFilters().then((filters) => setBrands(filters.brands)).catch(() => undefined)
-    getProducts({ sort: 'newest', page: 1 })
-      .then((result) => setNewProducts(result.data.slice(0, 8)))
-      .catch(() => undefined)
+    // Run all three initial fetches in parallel — categories, filters and
+    // "lo nuevo" products — so they don't queue up sequentially.
+    Promise.all([
+      getCategories().catch(() => [] as Category[]),
+      getFilters().catch(() => ({ brands: [] as string[], price: { min: null, max: null } })),
+      getProducts({ sort: 'newest', page: 1 }).catch(() => null),
+    ]).then(([cats, filters, newProds]) => {
+      setCategories(cats)
+      setBrands(filters.brands)
+      if (newProds) setNewProducts(newProds.data.slice(0, 8))
+    }).catch(() => setError('Conecta la API para cargar el catálogo.'))
   }, [])
 
   useEffect(() => {
@@ -148,21 +157,29 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    getProducts({ search, category, brand, available, sort, page })
-      .then((result) => {
-        if (cancelled) return
-        setProducts(result.data)
-        setPages(result.meta.pages)
-        setError('')
-      })
-      .catch((requestError: Error) => {
-        if (!cancelled) setError(requestError.message)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+
+    // Debounce filter changes by 300 ms so rapid filter interactions
+    // (category clicks, select changes) don't fire a request on every keystroke
+    // and don't pile up parallel in-flight fetches.
+    const timer = setTimeout(() => {
+      getProducts({ search, category, brand, available, sort, page })
+        .then((result) => {
+          if (cancelled) return
+          setProducts(result.data)
+          setPages(result.meta.pages)
+          setError('')
+        })
+        .catch((requestError: Error) => {
+          if (!cancelled) setError(requestError.message)
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false)
+        })
+    }, 300)
+
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
   }, [search, category, brand, available, sort, page])
 

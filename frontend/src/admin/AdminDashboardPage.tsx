@@ -33,8 +33,26 @@ export function AdminDashboardPage() {
     }
   }, [])
 
-  if (loading) return <AdminEmptyState message="Cargando panel…" />
-  if (error || !summary) return <AdminEmptyState message={error ?? 'No hay datos disponibles'} />
+  if (error) return <AdminEmptyState message={error} />
+
+  // Show skeleton cards while the single dashboard request is in-flight.
+  // This avoids a completely blank page — the user sees the layout immediately.
+  if (loading) return (
+    <div className="space-y-6 animate-pulse">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="glass-panel h-24 bg-neutral-100 p-5" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="glass-panel h-48 bg-neutral-100 p-5 lg:col-span-1" />
+        <div className="glass-panel h-48 bg-neutral-100 p-5 lg:col-span-2" />
+      </div>
+      <div className="glass-panel h-64 bg-neutral-100 p-5" />
+    </div>
+  )
+
+  if (!summary) return <AdminEmptyState message="No hay datos disponibles" />
 
   const { kpis, orders_by_status, low_stock_alerts, recent_orders } = summary
 

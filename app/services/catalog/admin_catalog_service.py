@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import Category, Product, ProductVariant
@@ -20,9 +21,32 @@ class AdminCatalogService:
             query = query.where(or_(Product.name.ilike(like), Product.brand.ilike(like)))
         total = db.session.scalar(select(func.count()).select_from(query.subquery())) or 0
         products = db.session.scalars(
-            query.order_by(Product.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
+            query.order_by(Product.created_at.desc())
+            .options(
+                selectinload(Product.categories),
+                selectinload(Product.variants),
+                selectinload(Product.images),
+                selectinload(Product.reviews),
+            )
+            .offset((page - 1) * per_page)
+            .limit(per_page)
         ).all()
         return products, total
+
+    def get_product(self, product_id: int) -> Product:
+        product = db.session.scalar(
+            select(Product)
+            .where(Product.id == product_id)
+            .options(
+                selectinload(Product.categories),
+                selectinload(Product.variants),
+                selectinload(Product.images),
+                selectinload(Product.reviews),
+            )
+        )
+        if product is None:
+            raise ResourceNotFoundError("Product not found")
+        return product
 
     def create_category(self, data: dict) -> Category:
         name = self._required_string(data, "name", 100)

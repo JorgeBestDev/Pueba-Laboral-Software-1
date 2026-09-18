@@ -2,9 +2,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import Order, OrderStatus, Product, ProductVariant, Review, User, UserRole
+from app.models.commerce.order import OrderItem
 
 LOW_STOCK_THRESHOLD = 5
 RECENT_ORDERS_LIMIT = 8
@@ -108,6 +110,7 @@ class AdminDashboardService:
                 Product.is_active.is_(True),
                 ProductVariant.stock_quantity <= LOW_STOCK_THRESHOLD,
             )
+            .options(selectinload(ProductVariant.product))
             .order_by(ProductVariant.stock_quantity.asc())
             .limit(LOW_STOCK_LIMIT)
         ).all()
@@ -125,7 +128,14 @@ class AdminDashboardService:
 
     def _recent_orders(self) -> list[dict]:
         orders = db.session.scalars(
-            select(Order).order_by(Order.created_at.desc()).limit(RECENT_ORDERS_LIMIT)
+            select(Order)
+            .options(
+                selectinload(Order.user),
+                selectinload(Order.items),
+                selectinload(Order.payment),
+            )
+            .order_by(Order.created_at.desc())
+            .limit(RECENT_ORDERS_LIMIT)
         ).all()
         result = []
         for order in orders:

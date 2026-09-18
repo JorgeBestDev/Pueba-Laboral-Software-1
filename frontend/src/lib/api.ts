@@ -65,6 +65,10 @@ export type User = {
 export type CartItem = {
   id: number
   variant_id: number
+  variant_name?: string
+  product_name?: string
+  product_slug?: string
+  image_url?: string | null
   quantity: number
   unit_price: string | null
 }

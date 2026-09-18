@@ -62,7 +62,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addItem = useCallback(
     async (variantId: number, quantity = 1, unitPrice?: string) => {
       setError(null)
-      const current = cartRef.current ?? (await api.getCurrentCart())
+      // cartRef is synchronously up-to-date thanks to `cartRef.current = cart`
+      // at the top of the provider.  If it's still null (mount hasn't finished)
+      // we wait for the in-flight reload() instead of creating a second fetch.
+      let current = cartRef.current
+      if (!current) {
+        await reload()
+        current = cartRef.current
+      }
+      if (!current) return   // reload failed, error already set by reload()
       const previousCart = current
 
       // Update the UI immediately (badge count, drawer) instead of waiting for the
@@ -98,7 +106,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         throw requestError
       }
     },
-    [],
+    [reload],
   )
 
   const updateItem = useCallback(

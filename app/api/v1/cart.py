@@ -96,6 +96,23 @@ def remove_cart_item(cart_id: int, item_id: int):
     return jsonify({"data": serialize_cart(cart)})
 
 
+@cart_bp.patch("/<int:cart_id>/items/<int:item_id>/variant")
+@token_optional
+def replace_cart_item_variant(cart_id: int, item_id: int):
+    payload = validate_payload(
+        request.get_json(silent=True),
+        required={"variant_id": lambda value: integer_value(value, field="variant_id", minimum=1)},
+    )
+    cart = cart_service.replace_item_variant(
+        cart_id=cart_id,
+        item_id=item_id,
+        variant_id=payload["variant_id"],
+        user_id=g.current_user.id if g.current_user else None,
+        session_key=None if g.current_user else request.headers.get("X-Cart-Session"),
+    )
+    return jsonify({"data": serialize_cart(cart)})
+
+
 @cart_bp.delete("/<int:cart_id>/items")
 @token_optional
 def clear_cart(cart_id: int):

@@ -34,9 +34,19 @@ def create_app(config_name: str | None = None) -> Flask:
     db.init_app(app)
     migrate.init_app(app, db)
     limiter.init_app(app)
+
+    # In development accept any localhost/127.0.0.1 port so Vite (:5173/:5174)
+    # and Expo Web (:8081/:8082) work without editing .env on every restart.
+    # In production use the explicit list from CORS_ORIGINS.
+    is_dev = app.config.get("DEBUG", False)
+    origins = r"http://(localhost|127\.0\.0\.1)(:\d+)?" if is_dev else app.config["CORS_ORIGINS"]
+
     CORS(
         app,
-        resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}},
+        resources={
+            r"/api/*":     {"origins": origins},
+            r"/uploads/*": {"origins": origins},   # images served from uploads/
+        },
         supports_credentials=app.config["CORS_SUPPORTS_CREDENTIALS"],
         max_age=app.config["CORS_MAX_AGE"],
     )

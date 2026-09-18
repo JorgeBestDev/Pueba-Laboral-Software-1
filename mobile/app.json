@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Vokter",
+    "slug": "vokter-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "vokter",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router", "expo-secure-store"],
+    "experiments": { "typedRoutes": true },
+    "android": { "package": "com.vokter.mobile" },
+    "ios": { "bundleIdentifier": "com.vokter.mobile" }
+  }
+}

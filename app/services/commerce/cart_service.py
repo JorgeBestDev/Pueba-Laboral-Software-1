@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import Cart, CartItem, ProductVariant
@@ -14,6 +15,35 @@ from app.services.exceptions import (
 
 
 class CartService:
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _cart_options():
+        """Eager-load all relations needed by serialize_cart in one round-trip."""
+        from app.models.catalog.product import Product as P
+        from app.models.catalog.product_image import ProductImage
+        from app.models.catalog.product_variant import ProductVariant as PV
+        return [
+            selectinload(Cart.items).selectinload(CartItem.variant).selectinload(
+                PV.product
+            ).selectinload(P.images),
+            selectinload(Cart.items).selectinload(CartItem.variant).selectinload(
+                PV.product
+            ).selectinload(P.variants),
+        ]
+
+    def _load_cart(self, cart_id: int) -> Cart | None:
+        """Return the cart with all relations eager-loaded."""
+        from app.models.catalog.product import Product as P
+        from app.models.catalog.product_image import ProductImage
+        from app.models.catalog.product_variant import ProductVariant as PV
+        return db.session.scalar(
+            select(Cart)
+            .where(Cart.id == cart_id)
+            .options(*self._cart_options())
+        )
     def create_cart(self, user_id: int | None, session_key: str | None) -> Cart:
         if user_id is not None and session_key:
             raise ValidationError("Use either user_id or session_key, not both")
@@ -60,8 +90,9 @@ class CartService:
             select(Cart).where(Cart.user_id == user_id, Cart.status == "active")
         )
         if cart is None:
-            return self.create_cart(user_id=user_id, session_key=None)
-        return cart
+            cart = self.create_cart(user_id=user_id, session_key=None)
+        loaded = self._load_cart(cart.id)
+        return loaded if loaded is not None else cart
 
     def get_cart(
         self,
@@ -78,7 +109,9 @@ class CartService:
             raise ResourceNotFoundError("Cart not found")
         if user_id is None and (not session_key or cart.session_key != session_key):
             raise ResourceNotFoundError("Cart not found")
-        return cart
+        # Return with eager-loaded relations so serialize_cart needs no lazy queries
+        loaded = self._load_cart(cart.id)
+        return loaded if loaded is not None else cart
 
     def add_item(
         self,
@@ -120,7 +153,9 @@ class CartService:
                 )
             )
         db.session.commit()
-        return cart
+        # Reload with eager relations after commit (session cache is expired post-commit)
+        loaded = self._load_cart(cart.id)
+        return loaded if loaded is not None else cart
 
     def update_item(
         self,
@@ -158,6 +193,47 @@ class CartService:
         if item is None:
             raise ResourceNotFoundError("Cart item not found")
         db.session.delete(item)
+        db.session.commit()
+        return cart
+
+    def replace_item_variant(
+        self,
+        cart_id: int,
+        item_id: int,
+        variant_id: int,
+        user_id: int | None = None,
+        session_key: str | None = None,
+    ) -> Cart:
+        """Switch one cart item's variant while preserving its quantity."""
+        cart = self.get_cart(cart_id, user_id=user_id, session_key=session_key)
+        item = db.session.scalar(
+            select(CartItem).where(CartItem.id == item_id, CartItem.cart_id == cart.id)
+        )
+        if item is None:
+            raise ResourceNotFoundError("Cart item not found")
+        variant = db.session.get(ProductVariant, variant_id)
+        if variant is None or variant.product_id != item.variant.product_id:
+            raise ValidationError("Variant does not belong to this product")
+        if not variant.is_active:
+            raise BusinessRuleError("Variant is unavailable")
+
+        existing = db.session.scalar(
+            select(CartItem).where(
+                CartItem.cart_id == cart.id,
+                CartItem.variant_id == variant.id,
+                CartItem.id != item.id,
+            )
+        )
+        requested_quantity = item.quantity + (existing.quantity if existing else 0)
+        if requested_quantity > variant.stock_quantity:
+            raise BusinessRuleError("Requested quantity exceeds stock")
+
+        if existing is not None:
+            existing.quantity = requested_quantity
+            db.session.delete(item)
+        else:
+            item.variant_id = variant.id
+            item.unit_price = Decimal(variant.price)
         db.session.commit()
         return cart
 

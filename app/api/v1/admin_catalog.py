@@ -42,9 +42,7 @@ def list_products():
 @admin_catalog_bp.get("/products/<int:product_id>")
 @admin_required
 def get_product(product_id: int):
-    from app.services.catalog import CatalogService
-
-    product = CatalogService().get_product(product_id)
+    product = admin_catalog_service.get_product(product_id)
     return jsonify({"data": serialize_product(product, include_details=True)})
 
 
