@@ -10,6 +10,10 @@ Aplicación para compradores construida con Expo y React Native. El panel de adm
 
 En un teléfono físico, `localhost` apunta al propio teléfono: usa la IP local del equipo que ejecuta Flask.
 
+Las compilaciones EAS del perfil `preview` usan la API desplegada en
+`https://vokter-api.onrender.com/api/v1`, por lo que el APK puede conectarse
+desde BlueStacks o desde un dispositivo físico sin depender de `localhost`.
+
 ## APK Android
 
 La aplicación móvil actualmente solo está disponible para Android. El APK

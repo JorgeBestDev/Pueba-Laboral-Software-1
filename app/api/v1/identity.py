@@ -1,9 +1,7 @@
 from datetime import datetime, timezone
 
-from flask import Blueprint, current_app, g, jsonify, request
-
 import jwt
-from flask import current_app
+from flask import Blueprint, current_app, g, jsonify, request
 
 from app.api.auth import (
     create_access_token,
@@ -38,6 +36,17 @@ def serialize_user(user) -> dict:
     }
 
 
+def issue_token_pair(user_id: int) -> tuple[str, str]:
+    """Create an access token tied to its persisted refresh session."""
+    refresh_token = create_refresh_token(user_id)
+    refresh_claims = jwt.decode(
+        refresh_token,
+        current_app.config["SECRET_KEY"],
+        algorithms=["HS256"],
+    )
+    return create_access_token(user_id, refresh_claims["jti"]), refresh_token
+
+
 @identity_bp.post("/register")
 def register():
     payload = validate_payload(
@@ -54,12 +63,13 @@ def register():
         first_name=payload.get("first_name"),
         last_name=payload.get("last_name"),
     )
+    access_token, refresh_token = issue_token_pair(user.id)
     return jsonify(
         {
             "data": {
                 "user": serialize_user(user),
-                "access_token": create_access_token(user.id),
-                "refresh_token": create_refresh_token(user.id),
+                "access_token": access_token,
+                "refresh_token": refresh_token,
             }
         }
     ), 201
@@ -75,12 +85,13 @@ def login():
         },
     )
     user = auth_service.authenticate(payload.get("email"), payload.get("password"))
+    access_token, refresh_token = issue_token_pair(user.id)
     return jsonify(
         {
             "data": {
                 "user": serialize_user(user),
-                "access_token": create_access_token(user.id),
-                "refresh_token": create_refresh_token(user.id),
+                "access_token": access_token,
+                "refresh_token": refresh_token,
             }
         }
     )
@@ -191,7 +202,7 @@ def refresh():
         user = auth_service.get_user(int(claims["sub"]))
     except (KeyError, TypeError, ValueError, jwt.InvalidTokenError):
         return jsonify({"error": {"code": "invalid_token", "message": "Refresh token is invalid or expired"}}), 401
-    new_refresh_token = create_refresh_token(user.id)
+    new_access_token, new_refresh_token = issue_token_pair(user.id)
     new_claims = jwt.decode(
         new_refresh_token,
         current_app.config["SECRET_KEY"],
@@ -203,7 +214,7 @@ def refresh():
     return jsonify(
         {
             "data": {
-                "access_token": create_access_token(user.id),
+                "access_token": new_access_token,
                 "refresh_token": new_refresh_token,
             }
         }
@@ -214,5 +225,9 @@ def refresh():
 @token_required
 def logout():
     payload = require_object(request.get_json(silent=True))
-    revoke_refresh_token(require_string(payload, "refresh_token", max_length=4096))
+    revoke_refresh_token(
+        require_string(payload, "refresh_token", max_length=4096),
+        user_id=g.current_user.id,
+        session_jti=g.current_session_jti,
+    )
     return "", 204

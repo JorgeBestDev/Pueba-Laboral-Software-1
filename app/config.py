@@ -44,6 +44,8 @@ class Config:
     GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
     AI_PROVIDER_TIMEOUT_SECONDS = float(os.getenv("AI_PROVIDER_TIMEOUT_SECONDS", "10"))
     AI_MAX_OUTPUT_TOKENS = int(os.getenv("AI_MAX_OUTPUT_TOKENS", "256"))
+    AI_INTERACTION_RATE_LIMIT = os.getenv("AI_INTERACTION_RATE_LIMIT", "15 per minute")
+    AI_EVENT_RATE_LIMIT = os.getenv("AI_EVENT_RATE_LIMIT", "90 per minute")
     # Self-contained math captcha for the admin login (no external service/keys).
     CAPTCHA_TOKEN_TTL_SECONDS = int(os.getenv("CAPTCHA_TOKEN_TTL_SECONDS", "300"))
     ADMIN_LOGIN_RATE_LIMIT = os.getenv("ADMIN_LOGIN_RATE_LIMIT", "8 per minute")

@@ -14,13 +14,19 @@ F = TypeVar("F", bound=Callable[..., Any])
 auth_service = AuthService()
 
 
-def create_access_token(user_id: int) -> str:
-    from datetime import datetime, timezone
-
+def create_access_token(user_id: int, session_jti: str) -> str:
     now = datetime.now(timezone.utc)
     expires_at = now + current_app.config["JWT_ACCESS_TOKEN_EXPIRES"]
     return jwt.encode(
-        {"sub": str(user_id), "type": "access", "iat": now, "exp": expires_at},
+        {
+            "sub": str(user_id),
+            "type": "access",
+            # Bind the short-lived access token to the server-side refresh
+            # session. Revoking that session now invalidates access immediately.
+            "sid": session_jti,
+            "iat": now,
+            "exp": expires_at,
+        },
         current_app.config["SECRET_KEY"],
         algorithm="HS256",
     )
@@ -44,11 +50,32 @@ def token_required(view: F) -> F:
             if payload.get("type", "access") != "access":
                 raise jwt.InvalidTokenError("Not an access token")
             user_id = int(payload["sub"])
+            session_jti = payload["sid"]
+            if not isinstance(session_jti, str):
+                raise jwt.InvalidTokenError("Access token session is invalid")
+
+            session = db.session.scalar(
+                db.select(AuthSession).where(AuthSession.jti == session_jti)
+            )
+            expires_at = (
+                session.expires_at.replace(tzinfo=timezone.utc)
+                if session is not None and session.expires_at.tzinfo is None
+                else session.expires_at if session is not None else None
+            )
+            if (
+                session is None
+                or session.user_id != user_id
+                or session.revoked_at is not None
+                or expires_at is None
+                or expires_at <= datetime.now(timezone.utc)
+            ):
+                raise jwt.InvalidTokenError("Access token session is invalid")
         except (jwt.InvalidTokenError, KeyError, TypeError, ValueError):
             return jsonify(
                 {"error": {"code": "invalid_token", "message": "Token is invalid or expired"}}
             ), 401
         g.current_user = auth_service.get_user(user_id)
+        g.current_session_jti = session_jti
         return view(*args, **kwargs)
 
     return wrapped  # type: ignore[return-value]
@@ -76,7 +103,12 @@ def create_refresh_token(user_id: int) -> str:
     return token
 
 
-def revoke_refresh_token(token: str) -> None:
+def revoke_refresh_token(
+    token: str,
+    *,
+    user_id: int | None = None,
+    session_jti: str | None = None,
+) -> None:
     try:
         claims = jwt.decode(
             token,
@@ -87,9 +119,12 @@ def revoke_refresh_token(token: str) -> None:
             return
     except jwt.InvalidTokenError:
         return
-    session = db.session.scalar(
-        db.select(AuthSession).where(AuthSession.jti == claims["jti"])
-    )
+    statement = db.select(AuthSession).where(AuthSession.jti == claims["jti"])
+    if user_id is not None:
+        statement = statement.where(AuthSession.user_id == user_id)
+    if session_jti is not None:
+        statement = statement.where(AuthSession.jti == session_jti)
+    session = db.session.scalar(statement)
     if session is not None and session.revoked_at is None:
         session.revoked_at = datetime.now(timezone.utc)
         db.session.commit()

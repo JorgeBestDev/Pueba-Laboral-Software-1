@@ -81,7 +81,17 @@ class AuthService:
         if not new_password or len(new_password) < 8:
             raise ValidationError("new_password must contain at least 8 characters")
         user.set_password(new_password)
+        self._revoke_active_sessions(user.id)
         db.session.commit()
+
+    @staticmethod
+    def _revoke_active_sessions(user_id: int) -> None:
+        now = datetime.now(timezone.utc)
+        for session in db.session.query(AuthSession).filter(
+            AuthSession.user_id == user_id,
+            AuthSession.revoked_at.is_(None),
+        ):
+            session.revoked_at = now
 
     def request_password_reset(self, email: str, email_service) -> bool:
         user = db.session.query(User).filter_by(email=email.strip().lower()).first()
@@ -141,9 +151,5 @@ class AuthService:
         now = datetime.now(timezone.utc)
         token.user.set_password(new_password)
         token.used_at = now
-        for session in db.session.query(AuthSession).filter(
-            AuthSession.user_id == token.user_id,
-            AuthSession.revoked_at.is_(None),
-        ):
-            session.revoked_at = now
+        self._revoke_active_sessions(token.user_id)
         db.session.commit()

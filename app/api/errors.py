@@ -2,6 +2,7 @@ import logging
 from uuid import uuid4
 
 from flask import Flask, g, jsonify, request
+from flask_limiter.errors import RateLimitExceeded
 from werkzeug.exceptions import BadRequest
 from sqlalchemy.exc import IntegrityError
 
@@ -38,6 +39,17 @@ def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(BadRequest)
     def bad_request(_error):
         return _error_response("bad_request", "The request is invalid", 400)
+
+    @app.errorhandler(RateLimitExceeded)
+    def rate_limit_exceeded(_error):
+        # Do not leak limiter internals, but preserve the semantic HTTP status
+        # so web and mobile clients can back off instead of treating it as a
+        # server failure.
+        return _error_response(
+            "rate_limit_exceeded",
+            "Too many requests. Please try again shortly.",
+            429,
+        )
 
     @app.errorhandler(IntegrityError)
     def integrity_error(_error):

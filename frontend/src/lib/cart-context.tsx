@@ -246,7 +246,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [commitCart, enqueueMutation],
   )
 
-  const itemCount = useMemo(() => cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0, [cart])
+  // Keep the header usable even if a proxy or an interrupted request returns
+  // an incomplete cart payload. Normal API responses always include items.
+  const itemCount = useMemo(
+    () => (Array.isArray(cart?.items) ? cart.items.reduce((sum, item) => sum + item.quantity, 0) : 0),
+    [cart],
+  )
 
   const value = useMemo<CartContextValue>(
     () => ({
