@@ -9,3 +9,22 @@ Aplicación para compradores construida con Expo y React Native. El panel de adm
 3. Ejecuta `npm start` y abre la app con Expo Go o un emulador.
 
 En un teléfono físico, `localhost` apunta al propio teléfono: usa la IP local del equipo que ejecuta Flask.
+
+## APK Android
+
+La aplicación móvil actualmente solo está disponible para Android. El APK
+incluido para descarga desde la aplicación web está en:
+
+```text
+../frontend/public/downloads/vokter-mobile.apk
+```
+
+Para generar una nueva compilación con Expo Application Services:
+
+```powershell
+npx eas-cli@latest build --platform android --profile preview
+```
+
+El perfil `preview` de `eas.json` genera un APK instalable. Después de que
+EAS finalice la compilación, descarga el artefacto y reemplaza el archivo
+existente en `frontend/public/downloads/`.

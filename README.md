@@ -15,7 +15,8 @@ Plataforma de comercio electrónico completa con backend Flask, frontend React y
 7. [Levantar los servicios](#levantar-los-servicios)
 8. [Panel de administración](#panel-de-administración)
 9. [API REST](#api-rest)
-10. [Despliegue en producción](#despliegue-en-producción)
+10. [Aplicación móvil Android](#aplicación-móvil-android)
+11. [Despliegue en producción](#despliegue-en-producción)
 
 ---
 
@@ -152,6 +153,7 @@ Entrevista Main/
 │       └── validation.py       # Helpers de validación de payloads JSON
 │
 ├── frontend/                   # Aplicación React (SPA)
+│   ├── public/downloads/       # APK Android descargable desde el storefront
 │   ├── src/
 │   │   ├── main.tsx            # Punto de entrada React + React Router
 │   │   ├── App.tsx             # Rutas principales, layouts, contextos globales
@@ -182,6 +184,11 @@ Entrevista Main/
 │   └── vite.config.ts
 │
 ├── migrations/                 # Migraciones Alembic (generadas automáticamente)
+├── mobile/                     # Aplicación Expo/React Native para Android
+│   ├── app/                    # Rutas de la aplicación móvil
+│   ├── src/                    # Cliente API, contextos y componentes
+│   ├── app.json                # Configuración Expo
+│   └── eas.json                # Perfil EAS para generar APK
 ├── instance/                   # Datos locales: vokter.db (SQLite) + uploads/
 ├── tests/                      # Suite de pruebas unitarias e integración
 ├── run.py                      # Punto de entrada WSGI
@@ -331,6 +338,32 @@ npm run dev
 ```
 
 La aplicación web queda disponible en `http://localhost:5173`.
+
+### Aplicación móvil Android
+
+La aplicación móvil se desarrolla con Expo y actualmente está disponible
+únicamente para Android. El APK generado se encuentra en:
+
+```text
+frontend/public/downloads/vokter-mobile.apk
+```
+
+Al ejecutar el frontend web, el enlace público de descarga es:
+
+```text
+/downloads/vokter-mobile.apk
+```
+
+Para generar una nueva versión con EAS:
+
+```powershell
+cd mobile
+npx eas-cli@latest build --platform android --profile preview
+npx eas-cli@latest build:download --build-id <id-del-build>
+```
+
+El perfil `preview` está configurado en `mobile/eas.json` para producir un
+APK instalable mediante distribución interna.
 
 ### Resumen de URLs en desarrollo
 
