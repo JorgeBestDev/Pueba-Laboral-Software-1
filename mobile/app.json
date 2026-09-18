@@ -6,9 +6,25 @@
     "orientation": "portrait",
     "scheme": "vokter",
     "userInterfaceStyle": "light",
-    "plugins": ["expo-router", "expo-secure-store"],
-    "experiments": { "typedRoutes": true },
-    "android": { "package": "com.vokter.mobile" },
-    "ios": { "bundleIdentifier": "com.vokter.mobile" }
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "android": {
+      "package": "com.vokter.mobile"
+    },
+    "ios": {
+      "bundleIdentifier": "com.vokter.mobile"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0e3a2c76-7ad4-4601-96c8-c21766244429"
+      }
+    },
+    "owner": "jorgebestdev"
   }
 }

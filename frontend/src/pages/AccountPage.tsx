@@ -8,6 +8,7 @@ import {
   listOrders,
   ORDER_STATUS_LABEL,
   removeWishlistItem,
+  resolveMediaUrl,
   updateAddress,
   type Address,
   type Order,
@@ -63,6 +64,9 @@ function AddressesTab() {
   const { push } = useToast()
   const [addresses, setAddresses] = useState<Address[]>([])
   const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [draft, setDraft] = useState<Partial<Omit<Address, 'id'>>>({})
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     listAddresses()
@@ -89,6 +93,35 @@ function AddressesTab() {
     }
   }
 
+  function startEditing(address: Address) {
+    setEditingId(address.id)
+    setDraft({
+      label: address.label ?? '',
+      street: address.street,
+      city: address.city,
+      state: address.state ?? '',
+      postal_code: address.postal_code ?? '',
+      country: address.country,
+    })
+  }
+
+  async function handleUpdate(event: FormEvent) {
+    event.preventDefault()
+    if (editingId === null) return
+    setSaving(true)
+    try {
+      const updated = await updateAddress(editingId, draft)
+      setAddresses((current) => current.map((address) => (address.id === updated.id ? updated : address)))
+      setEditingId(null)
+      setDraft({})
+      push('Dirección actualizada', 'success')
+    } catch (error) {
+      push(error instanceof ApiError ? error.message : 'No se pudo actualizar la dirección', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (loading) return <p className="text-neutral-500">Cargando direcciones…</p>
   if (addresses.length === 0) return <p className="text-neutral-500">No tienes direcciones guardadas. Agrégalas durante el checkout.</p>
 
@@ -96,22 +129,66 @@ function AddressesTab() {
     <div className="space-y-4">
       {addresses.map((address) => (
         <GlassPanel key={address.id} className="p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <span className="font-medium">{address.label || 'Dirección'}</span>
-            {address.is_default ? (
-              <Badge tone="success">Predeterminada</Badge>
-            ) : (
-              <button type="button" onClick={() => handleSetDefault(address.id)} className="text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-70">
-                Marcar como predeterminada
+            <div className="flex items-center gap-3">
+              {address.is_default ? (
+                <Badge tone="success">Predeterminada</Badge>
+              ) : (
+                <button type="button" onClick={() => handleSetDefault(address.id)} className="text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-70">
+                  Marcar como predeterminada
+                </button>
+              )}
+              <button type="button" onClick={() => startEditing(address)} className="text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-70">
+                Editar
               </button>
-            )}
+            </div>
           </div>
-          <p className="mt-1 text-sm text-neutral-600">
-            {address.street}, {address.city} {address.state ? `, ${address.state}` : ''} — {address.country}
-          </p>
-          <button type="button" onClick={() => handleDelete(address.id)} className="mt-2 text-xs uppercase tracking-wider text-neutral-500 underline underline-offset-4 hover:text-black">
-            Eliminar
-          </button>
+          {editingId === address.id ? (
+            <form onSubmit={handleUpdate} className="mt-4 space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                  Etiqueta
+                  <GlassInput required className="mt-1" placeholder="Ej. Casa" value={String(draft.label ?? '')} onChange={(event) => setDraft((current) => ({ ...current, label: event.target.value }))} />
+                </label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                  País
+                  <GlassInput required className="mt-1" placeholder="País" value={String(draft.country ?? '')} onChange={(event) => setDraft((current) => ({ ...current, country: event.target.value }))} />
+                </label>
+              </div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                Dirección
+                <GlassInput required className="mt-1" placeholder="Dirección" value={String(draft.street ?? '')} onChange={(event) => setDraft((current) => ({ ...current, street: event.target.value }))} />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                  Ciudad
+                  <GlassInput required className="mt-1" placeholder="Ciudad" value={String(draft.city ?? '')} onChange={(event) => setDraft((current) => ({ ...current, city: event.target.value }))} />
+                </label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                  Estado / departamento
+                  <GlassInput required className="mt-1" placeholder="Estado / departamento" value={String(draft.state ?? '')} onChange={(event) => setDraft((current) => ({ ...current, state: event.target.value }))} />
+                </label>
+              </div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                Código postal
+                <GlassInput required className="mt-1" placeholder="Código postal" value={String(draft.postal_code ?? '')} onChange={(event) => setDraft((current) => ({ ...current, postal_code: event.target.value }))} />
+              </label>
+              <div className="flex gap-3">
+                <GlassButton type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar dirección'}</GlassButton>
+                <GlassButton type="button" variant="ghost" onClick={() => { setEditingId(null); setDraft({}) }} disabled={saving}>Cancelar</GlassButton>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p className="mt-1 text-sm text-neutral-600">
+                {address.street}, {address.city} {address.state ? `, ${address.state}` : ''} — {address.country}
+              </p>
+              <button type="button" onClick={() => handleDelete(address.id)} className="mt-2 text-xs uppercase tracking-wider text-neutral-500 underline underline-offset-4 hover:text-black">
+                Eliminar
+              </button>
+            </>
+          )}
         </GlassPanel>
       ))}
     </div>
@@ -138,14 +215,31 @@ function WishlistTab() {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {wishlist.items.map((item) => (
-        <GlassPanel key={item.id} className="p-5">
-          <Link to={`/products/${item.product.slug}`} className="text-xs font-medium uppercase tracking-wide hover:opacity-70">
-            {item.product.name}
-          </Link>
-          <p className="mt-1 font-bold">${item.product.base_price}</p>
-          <button type="button" onClick={() => handleRemove(item.id)} className="mt-2 text-xs uppercase tracking-wider text-neutral-500 underline underline-offset-4 hover:text-black">
-            Quitar
-          </button>
+        <GlassPanel key={item.id} className="p-4">
+          <div className="flex gap-4">
+            <Link to={`/products/${item.product.slug}`} className="h-28 w-24 shrink-0 overflow-hidden product-image-bg">
+              {item.product.images?.[0]?.url ? (
+                <img
+                  className="h-full w-full object-cover"
+                  src={resolveMediaUrl(item.product.images[0].url)}
+                  alt={item.product.images[0].alt_text ?? item.product.name}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-3xl text-neutral-300" aria-hidden="true">
+                  {item.product.name.slice(0, 1)}
+                </div>
+              )}
+            </Link>
+            <div className="min-w-0 flex-1">
+              <Link to={`/products/${item.product.slug}`} className="text-xs font-medium uppercase tracking-wide hover:opacity-70">
+                {item.product.name}
+              </Link>
+              <p className="mt-1 font-bold">${item.product.base_price}</p>
+              <button type="button" onClick={() => handleRemove(item.id)} className="mt-2 text-xs uppercase tracking-wider text-neutral-500 underline underline-offset-4 hover:text-black">
+                Quitar
+              </button>
+            </div>
+          </div>
         </GlassPanel>
       ))}
     </div>

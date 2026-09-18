@@ -277,8 +277,9 @@ export function CheckoutPage() {
             {cart.items.map((item) => (
               <li key={item.id} className="flex justify-between text-sm">
                 <span className="text-neutral-600">
-                  Variante #{item.variant_id} × {item.quantity}
-                </span>
+                <span className="block font-medium text-neutral-900">{item.product_name ?? 'Producto'}</span>
+                <span className="block text-xs">{item.variant_name ?? 'Variante única'} × {item.quantity}</span>
+              </span>
                 <span className="font-medium">${item.unit_price ? (Number(item.unit_price) * item.quantity).toFixed(2) : '0.00'}</span>
               </li>
             ))}

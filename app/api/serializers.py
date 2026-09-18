@@ -42,7 +42,10 @@ def serialize_category(category: Category, include_products: bool = False) -> di
 
 
 def serialize_product(
-    product: Product, include_details: bool = False, include_variants: bool = False
+    product: Product,
+    include_details: bool = False,
+    include_variants: bool = False,
+    include_images: bool = False,
 ) -> dict[str, Any]:
     ratings = [review.rating for review in product.reviews]
     data = {
@@ -73,11 +76,12 @@ def serialize_product(
             for image in sorted(product.images, key=lambda i: i.sort_order)
         ]
         data["variants"] = [serialize_variant(variant) for variant in product.variants]
-    elif include_variants:
-        # The list endpoint includes the first image so the catalog grid can
-        # display the product thumbnail without a second round-trip.
-        data["variants"] = [serialize_variant(variant) for variant in product.variants]
+    elif include_variants or include_images:
         images_sorted = sorted(product.images, key=lambda i: i.sort_order)
+        if include_variants:
+            data["variants"] = [serialize_variant(variant) for variant in product.variants]
+        # List and wishlist endpoints only need the primary image to avoid
+        # returning the full product gallery.
         data["images"] = [
             {
                 "id": image.id,
@@ -223,7 +227,7 @@ def serialize_wishlist(wishlist: Wishlist) -> dict[str, Any]:
         "items": [
             {
                 "id": item.id,
-                "product": serialize_product(item.product),
+                "product": serialize_product(item.product, include_images=True),
             }
             for item in wishlist.items
         ],

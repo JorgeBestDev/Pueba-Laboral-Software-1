@@ -14,6 +14,7 @@ type CartContextValue = {
   closeDrawer: () => void
   addItem: (variantId: number, quantity?: number, unitPrice?: string) => Promise<void>
   updateItem: (itemId: number, quantity: number) => Promise<void>
+  replaceItemVariant: (itemId: number, variantId: number) => Promise<void>
   removeItem: (itemId: number) => Promise<void>
   reload: () => Promise<void>
 }
@@ -210,6 +211,41 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [commitCart, enqueueMutation],
   )
 
+  const replaceItemVariant = useCallback(
+    async (itemId: number, variantId: number) => {
+      const current = cartRef.current
+      if (!current) return
+      setError(null)
+      const previousCart = current
+      const item = current.items.find((candidate) => candidate.id === itemId)
+      const selectedVariant = item?.available_variants?.find((variant) => variant.id === variantId)
+      if (!item || !selectedVariant || item.variant_id === variantId) return
+      const version = ++mutationVersionRef.current
+      const optimisticItems = current.items.map((candidate) =>
+        candidate.id === itemId
+          ? {
+              ...candidate,
+              variant_id: variantId,
+              variant_name: selectedVariant.name,
+              unit_price: selectedVariant.price,
+            }
+          : candidate,
+      )
+      commitCart({ ...current, items: optimisticItems, total: computeTotal(optimisticItems) })
+
+      enqueueMutation(
+        async () => {
+          const resolvedItemId = itemIdAliasesRef.current.get(itemId) ?? itemId
+          return api.replaceCartItemVariant(current.id, resolvedItemId, variantId)
+        },
+        previousCart,
+        version,
+        'No se pudo cambiar la variante.',
+      )
+    },
+    [commitCart, enqueueMutation],
+  )
+
   const itemCount = useMemo(() => cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0, [cart])
 
   const value = useMemo<CartContextValue>(
@@ -223,10 +259,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       closeDrawer: () => setDrawerOpen(false),
       addItem,
       updateItem,
+      replaceItemVariant,
       removeItem,
       reload,
     }),
-    [cart, loading, error, itemCount, isDrawerOpen, addItem, updateItem, removeItem, reload],
+    [cart, loading, error, itemCount, isDrawerOpen, addItem, updateItem, replaceItemVariant, removeItem, reload],
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

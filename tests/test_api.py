@@ -12,6 +12,7 @@ from app.models import (
     OrderStatus,
     PasswordResetToken,
     Product,
+    ProductImage,
     ProductVariant,
     User,
     UserRole,
@@ -56,6 +57,30 @@ class ApiTestCase(unittest.TestCase):
 
     def auth_headers(self, token: str) -> dict[str, str]:
         return {"Authorization": f"Bearer {token}"}
+
+    def test_wishlist_includes_primary_product_image(self):
+        registration = self.register("wishlist-image@example.com")
+        self.variant.product.images.append(
+            ProductImage(
+                url="/uploads/wishlist-product.jpg",
+                alt_text="Test product image",
+                sort_order=0,
+            )
+        )
+        db.session.commit()
+
+        response = self.client.post(
+            "/api/v1/wishlist/items",
+            json={"product_id": self.variant.product_id},
+            headers=self.auth_headers(registration["access_token"]),
+        )
+
+        self.assertEqual(response.status_code, 201)
+        item = response.get_json()["data"]["items"][0]
+        self.assertEqual(
+            item["product"]["images"][0]["url"],
+            "/uploads/wishlist-product.jpg",
+        )
 
     def make_admin(self, email: str) -> str:
         user = db.session.query(User).filter_by(email=email).one()

@@ -200,20 +200,82 @@ function OrdersTab({ orders, hasError }: { orders: Order[]; hasError: boolean })
 }
 
 function AddressesTab({ addresses, hasError }: { addresses: Address[]; hasError: boolean }) {
+  const { showToast } = useToast()
+  const [localAddresses, setLocalAddresses] = useState(addresses)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [draft, setDraft] = useState<Partial<Omit<Address, 'id'>>>({})
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setLocalAddresses(addresses)
+  }, [addresses])
+
+  function startEditing(address: Address) {
+    setEditingId(address.id)
+    setDraft({
+      label: address.label ?? '',
+      street: address.street,
+      city: address.city,
+      state: address.state ?? '',
+      postal_code: address.postal_code ?? '',
+      country: address.country,
+    })
+  }
+
+  async function saveAddress() {
+    if (editingId === null) return
+    setSaving(true)
+    try {
+      const updated = await api.updateAddress(editingId, draft)
+      setLocalAddresses((current) => current.map((address) => (address.id === updated.id ? updated : address)))
+      setEditingId(null)
+      setDraft({})
+      showToast('Dirección actualizada.', 'success')
+    } catch (error) {
+      showToast(friendlyErrorMessage(error, 'No se pudo actualizar la dirección.'), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Mis direcciones</Text>
-      {hasError ? <Text style={styles.error}>No pudimos cargar tus direcciones. Inténtalo nuevamente.</Text> : addresses.length ? addresses.map((address) => (
+      {hasError ? <Text style={styles.error}>No pudimos cargar tus direcciones. Inténtalo nuevamente.</Text> : localAddresses.length ? localAddresses.map((address) => (
         <View key={address.id} style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>{address.label || 'Dirección'}</Text>
             {address.is_default && <Text style={styles.badge}>Predeterminada</Text>}
           </View>
-          <Text style={styles.muted}>{address.street}</Text>
-          <Text style={styles.muted}>
-            {address.city}{address.state ? `, ${address.state}` : ''}{address.postal_code ? ` · ${address.postal_code}` : ''}
-          </Text>
-          <Text style={styles.muted}>{address.country}</Text>
+          {editingId === address.id ? (
+            <View style={styles.addressForm}>
+              <View style={styles.field}><Text style={styles.fieldLabel}>Etiqueta</Text><TextInput value={String(draft.label ?? '')} onChangeText={(value) => setDraft((current) => ({ ...current, label: value }))} placeholder="Ej. Casa" style={styles.input} /></View>
+              <View style={styles.field}><Text style={styles.fieldLabel}>Dirección</Text><TextInput value={String(draft.street ?? '')} onChangeText={(value) => setDraft((current) => ({ ...current, street: value }))} placeholder="Dirección" style={styles.input} /></View>
+              <View style={styles.field}><Text style={styles.fieldLabel}>Ciudad</Text><TextInput value={String(draft.city ?? '')} onChangeText={(value) => setDraft((current) => ({ ...current, city: value }))} placeholder="Ciudad" style={styles.input} /></View>
+              <View style={styles.field}><Text style={styles.fieldLabel}>Estado / departamento</Text><TextInput value={String(draft.state ?? '')} onChangeText={(value) => setDraft((current) => ({ ...current, state: value }))} placeholder="Estado / departamento" style={styles.input} /></View>
+              <View style={styles.field}><Text style={styles.fieldLabel}>Código postal</Text><TextInput value={String(draft.postal_code ?? '')} onChangeText={(value) => setDraft((current) => ({ ...current, postal_code: value }))} placeholder="Código postal" style={styles.input} /></View>
+              <View style={styles.field}><Text style={styles.fieldLabel}>País</Text><TextInput value={String(draft.country ?? '')} onChangeText={(value) => setDraft((current) => ({ ...current, country: value }))} placeholder="País" style={styles.input} /></View>
+              <View style={styles.addressActions}>
+                <Pressable onPress={() => void saveAddress()} disabled={saving} style={[styles.secondaryButton, saving && styles.disabledButton]}>
+                  <Text style={styles.secondaryButtonText}>{saving ? 'Guardando…' : 'Guardar'}</Text>
+                </Pressable>
+                <Pressable onPress={() => { setEditingId(null); setDraft({}) }} disabled={saving} style={styles.cancelButton}>
+                  <Text style={styles.cancelText}>Cancelar</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.muted}>{address.street}</Text>
+              <Text style={styles.muted}>
+                {address.city}{address.state ? `, ${address.state}` : ''}{address.postal_code ? ` · ${address.postal_code}` : ''}
+              </Text>
+              <Text style={styles.muted}>{address.country}</Text>
+              <Pressable onPress={() => startEditing(address)} style={styles.editButton}>
+                <Text style={styles.editText}>Editar dirección</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       )) : <Text style={styles.muted}>No tienes direcciones guardadas. Puedes agregarlas durante el checkout.</Text>}
     </View>
@@ -226,7 +288,7 @@ function WishlistTab({ wishlist, hasError, router }: { wishlist: Wishlist | null
       <Text style={styles.sectionTitle}>Lista de deseos</Text>
       {hasError ? <Text style={styles.error}>No pudimos cargar tu lista de deseos. Inténtalo nuevamente.</Text> : wishlist?.items.length ? wishlist.items.map((item) => (
         <Pressable key={item.id} onPress={() => router.push({ pathname: '/product/[slug]', params: { slug: item.product.slug } })} style={styles.wishlistItem}>
-          {mediaUrl(item.product.images?.[0]?.url) ? <Image source={{ uri: mediaUrl(item.product.images?.[0]?.url) }} style={styles.wishlistImage} /> : <View style={styles.wishlistImage} />}
+          {mediaUrl(item.product.images?.[0]?.url) ? <Image accessibilityLabel={item.product.images?.[0]?.alt_text ?? item.product.name} source={{ uri: mediaUrl(item.product.images?.[0]?.url) }} style={styles.wishlistImage} resizeMode="cover" /> : <View style={styles.wishlistImage} accessible accessibilityLabel={`Imagen no disponible para ${item.product.name}`} />}
           <View style={styles.wishlistInfo}>
             <Text style={styles.cardTitle}>{item.product.name}</Text>
             <Text style={styles.price}>${item.product.base_price}</Text>
@@ -272,6 +334,14 @@ const styles = StyleSheet.create({
   refreshButton: { borderWidth: 1, borderColor: colors.line, padding: 13, alignItems: 'center', marginTop: 16 },
   refreshText: { color: colors.ink, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
   input: { borderWidth: 1, borderColor: colors.line, paddingHorizontal: 12, paddingVertical: 13, color: colors.ink, backgroundColor: colors.white },
+  addressForm: { gap: 8, marginTop: 8 },
+  field: { gap: 4 },
+  fieldLabel: { color: colors.muted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
+  addressActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  cancelButton: { borderWidth: 1, borderColor: colors.line, padding: 14, alignItems: 'center' },
+  cancelText: { color: colors.ink, fontWeight: '700', textTransform: 'uppercase', fontSize: 11 },
+  editButton: { alignSelf: 'flex-start', marginTop: 8 },
+  editText: { color: colors.ink, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline', textTransform: 'uppercase' },
   passwordHeading: { marginTop: 18 },
   secondaryButton: { borderWidth: 1, borderColor: colors.line, padding: 14, alignItems: 'center' },
   secondaryButtonText: { color: colors.ink, fontWeight: '700', textTransform: 'uppercase', fontSize: 11 },

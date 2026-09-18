@@ -69,6 +69,7 @@ export type CartItem = {
   product_name?: string
   product_slug?: string
   image_url?: string | null
+  available_variants?: { id: number; name: string; price: string; stock_quantity: number }[]
   quantity: number
   unit_price: string | null
 }
@@ -456,6 +457,14 @@ export async function updateCartItem(cartId: number, itemId: number, quantity: n
 
 export async function removeCartItem(cartId: number, itemId: number): Promise<Cart> {
   const response = await apiFetch<{ data: Cart }>(`/carts/${cartId}/items/${itemId}`, { method: 'DELETE' })
+  return response.data
+}
+
+export async function replaceCartItemVariant(cartId: number, itemId: number, variantId: number): Promise<Cart> {
+  const response = await apiFetch<{ data: Cart }>(`/carts/${cartId}/items/${itemId}/variant`, {
+    method: 'PATCH',
+    body: JSON.stringify({ variant_id: variantId }),
+  })
   return response.data
 }
 

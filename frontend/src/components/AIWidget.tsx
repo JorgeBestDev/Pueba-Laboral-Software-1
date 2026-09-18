@@ -123,8 +123,7 @@ function MarkdownMessage({ content }: { content: string }) {
 
 // ---------------------------------------------------------------------------
 
-export function AIWidget() {
-  const [open, setOpen] = useState(false)
+export function AIWidget({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [prompt, setPrompt] = useState('')
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -203,7 +202,7 @@ export function AIWidget() {
             </div>
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={() => onOpenChange(false)}
               className="rounded p-1 text-neutral-400 transition hover:bg-neutral-100 hover:text-black"
               aria-label="Cerrar asistente"
             >
@@ -285,7 +284,7 @@ export function AIWidget() {
       {/* Floating trigger button */}
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => onOpenChange(!open)}
         className="group flex h-14 w-14 items-center justify-center bg-black text-white shadow-xl transition-transform hover:scale-105 hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
         aria-label="Abrir asistente de IA"
       >

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { getCategories, getFilters, getProducts, recordEvent, resolveMediaUrl, type Category, type Product } from '../lib/api'
 import { useCart } from '../lib/cart-context'
 import { useWishlist } from '../lib/wishlist-context'
@@ -107,6 +107,7 @@ function CategoryCard({ category, product }: { category: Category; product?: Pro
 }
 
 export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus?: boolean; onSearchFocusHandled?: () => void }) {
+  const location = useLocation()
   const [products, setProducts] = useState<Product[]>([])
   const [newProducts, setNewProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -122,6 +123,17 @@ export function CatalogPage({ searchFocus, onSearchFocusHandled }: { searchFocus
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [newOffset, setNewOffset] = useState(0)
+
+  useEffect(() => {
+    const requestedSort = new URLSearchParams(location.search).get('sort')
+    if (requestedSort === 'newest' || requestedSort === 'best_selling') {
+      setSort(requestedSort)
+      setPage(1)
+    }
+    if (location.hash === '#catalog') {
+      requestAnimationFrame(() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' }))
+    }
+  }, [location.hash, location.search])
 
   useEffect(() => {
     // Run all three initial fetches in parallel — categories, filters and

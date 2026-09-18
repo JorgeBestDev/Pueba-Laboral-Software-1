@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
+import { QRCodeSVG } from 'qrcode.react'
 import { AdminCustomersPage } from './admin/AdminCustomersPage'
 import { AdminDashboardPage } from './admin/AdminDashboardPage'
 import { AdminLayout } from './admin/AdminLayout'
@@ -9,7 +10,7 @@ import { AdminProductsPage } from './admin/AdminProductsPage'
 import { AIWidget } from './components/AIWidget'
 import { AuthModal } from './components/AuthModal'
 import { CartDrawer } from './components/CartDrawer'
-import { IconBag, IconSearch, IconUser } from './components/ui'
+import { IconBag, IconSearch, IconUser, Modal } from './components/ui'
 import { useAuth } from './lib/auth-context'
 import { useCart } from './lib/cart-context'
 import { AccountPage } from './pages/AccountPage'
@@ -20,15 +21,57 @@ import { ProductDetailPage } from './pages/ProductDetailPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 
-const NAV_LINKS = [
-  { label: 'Novedades', href: '/#new' },
-  { label: 'Más vendidos', href: '/#catalog' },
-  { label: 'Explorar', href: '/#catalog' },
-  { label: 'Asistente IA', href: '#ai' },
-  { label: 'App móvil', href: '#mobile' },
+type NavLink = { label: string; to: string } | { label: string; href: string }
+
+const NAV_LINKS: NavLink[] = [
+  { label: 'Novedades', to: '/?sort=newest#catalog' },
+  { label: 'Más vendidos', to: '/?sort=best_selling#catalog' },
+  { label: 'Explorar', to: '/#catalog' },
 ]
 
-function Header({ onOpenAuth, onOpenSearch }: { onOpenAuth: () => void; onOpenSearch: () => void }) {
+function MobileDownloadModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const downloadPath = '/downloads/vokter-mobile.apk'
+  const downloadUrl = `${window.location.origin}${downloadPath}`
+
+  return (
+    <Modal open={open} onClose={onClose} className="max-w-lg">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-600">Vokter mobile</p>
+          <h2 className="mt-2 font-display text-2xl italic">Compra desde cualquier lugar.</h2>
+        </div>
+        <button type="button" onClick={onClose} className="text-xl text-neutral-400 hover:text-black" aria-label="Cerrar descarga">
+          ×
+        </button>
+      </div>
+      <p className="mt-4 text-sm leading-6 text-neutral-600">
+        Lleva tu catálogo, carrito, favoritos y asistente IA contigo. La aplicación móvil está disponible por ahora
+        únicamente para dispositivos Android.
+      </p>
+      <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+        <div className="shrink-0 border border-neutral-200 bg-white p-3">
+          <QRCodeSVG value={downloadUrl} size={150} includeMargin aria-label="Código QR para descargar Vokter Mobile" />
+        </div>
+        <div className="text-sm text-neutral-600">
+          <p className="font-semibold text-black">Escanea el código QR</p>
+          <p className="mt-2 leading-6">El enlace abrirá la descarga del APK para instalar la aplicación en Android.</p>
+          <a
+            href={downloadPath}
+            download="vokter-mobile.apk"
+            className="mt-4 inline-flex bg-black px-4 py-3 text-xs font-semibold uppercase tracking-wider text-white transition hover:bg-neutral-800"
+          >
+            Descargar APK
+          </a>
+        </div>
+      </div>
+      <p className="mt-5 break-all border-t border-neutral-100 pt-4 text-xs text-neutral-400">
+        Enlace alternativo: <a href={downloadPath} className="underline underline-offset-2 hover:text-black">{downloadUrl}</a>
+      </p>
+    </Modal>
+  )
+}
+
+function Header({ onOpenAuth, onOpenSearch, onOpenAI, onOpenMobile }: { onOpenAuth: () => void; onOpenSearch: () => void; onOpenAI: () => void; onOpenMobile: () => void }) {
   const { isAuthenticated } = useAuth()
   const { itemCount, openDrawer } = useCart()
 
@@ -41,10 +84,22 @@ function Header({ onOpenAuth, onOpenSearch }: { onOpenAuth: () => void; onOpenSe
 
         <div className="hidden flex-1 items-center justify-center gap-5 xl:flex">
           {NAV_LINKS.map((link) => (
-            <a key={link.label} href={link.href} className="nav-link">
-              {link.label}
-            </a>
+            'to' in link ? (
+              <Link key={link.label} to={link.to} className="nav-link">
+                {link.label}
+              </Link>
+            ) : (
+              <a key={link.label} href={link.href} className="nav-link">
+                {link.label}
+              </a>
+            )
           ))}
+          <button type="button" onClick={onOpenAI} className="nav-link">
+            Asistente IA
+          </button>
+          <button type="button" onClick={onOpenMobile} className="nav-link">
+            App móvil
+          </button>
         </div>
 
         <div className="flex items-center gap-1 sm:gap-3">
@@ -78,10 +133,22 @@ function Header({ onOpenAuth, onOpenSearch }: { onOpenAuth: () => void; onOpenSe
 
       <div className="flex gap-4 overflow-x-auto border-t border-white/10 px-4 py-2 xl:hidden">
         {NAV_LINKS.map((link) => (
-          <a key={link.label} href={link.href} className="nav-link shrink-0">
-            {link.label}
-          </a>
+          'to' in link ? (
+            <Link key={link.label} to={link.to} className="nav-link shrink-0">
+              {link.label}
+            </Link>
+          ) : (
+            <a key={link.label} href={link.href} className="nav-link shrink-0">
+              {link.label}
+            </a>
+          )
         ))}
+        <button type="button" onClick={onOpenAI} className="nav-link shrink-0">
+          Asistente IA
+        </button>
+        <button type="button" onClick={onOpenMobile} className="nav-link shrink-0">
+          App móvil
+        </button>
       </div>
     </header>
   )
@@ -124,6 +191,8 @@ function ScrollToTop() {
 
 function Storefront() {
   const [authOpen, setAuthOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
+  const [mobileDownloadOpen, setMobileDownloadOpen] = useState(false)
   const [searchFocus, setSearchFocus] = useState(false)
   const { loading } = useAuth()
   const navigate = useNavigate()
@@ -151,7 +220,12 @@ function Storefront() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-black">
-      <Header onOpenAuth={() => setAuthOpen(true)} onOpenSearch={handleOpenSearch} />
+      <Header
+        onOpenAuth={() => setAuthOpen(true)}
+        onOpenSearch={handleOpenSearch}
+        onOpenAI={() => setAiOpen(true)}
+        onOpenMobile={() => setMobileDownloadOpen(true)}
+      />
 
       <main className="flex-1">
         <Outlet context={{ searchFocus, onSearchFocusHandled: () => setSearchFocus(false) }} />
@@ -162,8 +236,9 @@ function Storefront() {
       <ScrollToTop />
       <CartDrawer />
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <MobileDownloadModal open={mobileDownloadOpen} onClose={() => setMobileDownloadOpen(false)} />
       <div id="ai">
-        <AIWidget />
+        <AIWidget open={aiOpen} onOpenChange={setAiOpen} />
       </div>
     </div>
   )

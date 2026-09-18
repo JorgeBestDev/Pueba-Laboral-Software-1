@@ -155,6 +155,10 @@ export const api = {
   removeCartItem: (cartId: number, itemId: number) => request<Cart>(`/carts/${cartId}/items/${itemId}`, { method: 'DELETE' }),
   replaceCartItemVariant: (cartId: number, itemId: number, variantId: number) => request<Cart>(`/carts/${cartId}/items/${itemId}/variant`, { method: 'PATCH', body: JSON.stringify({ variant_id: variantId }) }),
   getAddresses: () => request<Address[]>('/users/me/addresses'),
+  updateAddress: (addressId: number, input: Partial<Omit<Address, 'id'>>) => request<Address>(`/users/me/addresses/${addressId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  }),
   getOrders: () => request<Order[]>('/orders'),
   getWishlist: () => request<Wishlist>('/wishlist'),
   addWishlistItem: (productId: number) => request<Wishlist>('/wishlist/items', {
