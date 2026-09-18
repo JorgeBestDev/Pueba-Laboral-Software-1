@@ -1,6 +1,17 @@
+import hashlib
+import logging
+import secrets
+import smtplib
+from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
+
+from flask import current_app
+
 from app import db
-from app.models import User, UserRole
-from app.services.exceptions import AuthenticationError, ValidationError
+from app.models import AuthSession, PasswordResetToken, User, UserRole
+from app.services.exceptions import AuthenticationError, DeliveryError, ValidationError
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -70,4 +81,69 @@ class AuthService:
         if not new_password or len(new_password) < 8:
             raise ValidationError("new_password must contain at least 8 characters")
         user.set_password(new_password)
+        db.session.commit()
+
+    def request_password_reset(self, email: str, email_service) -> bool:
+        user = db.session.query(User).filter_by(email=email.strip().lower()).first()
+        if user is None or not user.is_active:
+            return False
+
+        now = datetime.now(timezone.utc)
+        for previous in db.session.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used_at.is_(None),
+        ):
+            previous.used_at = now
+
+        raw_token = secrets.token_urlsafe(32)
+        token = PasswordResetToken(
+            user_id=user.id,
+            token_hash=hashlib.sha256(raw_token.encode("utf-8")).hexdigest(),
+            expires_at=now + timedelta(seconds=current_app.config["PASSWORD_RESET_TTL_SECONDS"]),
+        )
+        db.session.add(token)
+        db.session.flush()
+
+        base_url = current_app.config["PASSWORD_RESET_URL"].rstrip("/")
+        separator = "&" if "?" in base_url else "?"
+        reset_url = f"{base_url}{separator}token={quote(raw_token)}"
+        try:
+            email_service.send_password_reset(user.email, reset_url)
+        except (OSError, RuntimeError, smtplib.SMTPException) as error:
+            db.session.rollback()
+            logger.exception("Password reset email delivery failed")
+            message = (
+                "El servicio de correo no está configurado"
+                if isinstance(error, RuntimeError)
+                else "El servicio de correo no está disponible"
+            )
+            raise DeliveryError(message) from error
+
+        db.session.commit()
+        return True
+
+    def reset_password(self, raw_token: str, new_password: str) -> None:
+        token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+        token = db.session.scalar(
+            db.select(PasswordResetToken)
+            .where(
+                PasswordResetToken.token_hash == token_hash,
+                PasswordResetToken.used_at.is_(None),
+                PasswordResetToken.expires_at > datetime.now(timezone.utc),
+            )
+            .with_for_update()
+        )
+        if token is None:
+            raise ValidationError("El enlace de recuperación no es válido o ya expiró")
+        if len(new_password) < 8:
+            raise ValidationError("new_password must contain at least 8 characters")
+
+        now = datetime.now(timezone.utc)
+        token.user.set_password(new_password)
+        token.used_at = now
+        for session in db.session.query(AuthSession).filter(
+            AuthSession.user_id == token.user_id,
+            AuthSession.revoked_at.is_(None),
+        ):
+            session.revoked_at = now
         db.session.commit()

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import * as adminApi from '../lib/admin-api'
 import { useAdminAuth } from '../lib/admin-auth-context'
+import { PasswordInput } from '../components/ui'
 
 export function AdminLoginPage() {
   const { admin, loading, login } = useAdminAuth()
@@ -89,13 +90,12 @@ export function AdminLoginPage() {
             <label htmlFor="admin-password" className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-widest text-neutral-400">
               Contraseña
             </label>
-            <input
+            <PasswordInput
               id="admin-password"
-              type="password"
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="glass-input !border-white/20 !bg-neutral-900 !text-white"
+              className="!border-white/20 !bg-neutral-900 !text-white"
               placeholder="••••••••"
               autoComplete="current-password"
             />

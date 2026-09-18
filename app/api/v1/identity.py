@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 import jwt
 from flask import current_app
@@ -11,7 +11,7 @@ from app.api.auth import (
     revoke_refresh_token,
     token_required,
 )
-from app import db
+from app import db, limiter
 from app.models import AuthSession
 from app.schemas.validation import (
     email_value,
@@ -20,10 +20,11 @@ from app.schemas.validation import (
     string_value,
     validate_payload,
 )
-from app.services.identity import AuthService
+from app.services.identity import AuthService, EmailService
 
 identity_bp = Blueprint("identity", __name__, url_prefix="/auth")
 auth_service = AuthService()
+email_service = EmailService()
 
 
 def serialize_user(user) -> dict:
@@ -126,6 +127,39 @@ def change_password():
         payload.get("current_password"),
         payload.get("new_password"),
     )
+    return "", 204
+
+
+@identity_bp.post("/password-reset/request")
+@limiter.limit(lambda: current_app.config["PASSWORD_RESET_RATE_LIMIT"])
+def request_password_reset():
+    payload = validate_payload(
+        request.get_json(silent=True),
+        required={"email": email_value},
+    )
+    auth_service.request_password_reset(payload["email"], email_service)
+    return jsonify(
+        {
+            "data": {
+                "message": (
+                    "Si existe una cuenta asociada a ese correo, "
+                    "recibirás instrucciones para restablecer tu contraseña."
+                )
+            }
+        }
+    ), 202
+
+
+@identity_bp.post("/password-reset/confirm")
+def confirm_password_reset():
+    payload = validate_payload(
+        request.get_json(silent=True),
+        required={
+            "token": lambda value: string_value(value, field="token", max_length=256),
+            "new_password": lambda value: string_value(value, field="new_password", max_length=128),
+        },
+    )
+    auth_service.reset_password(payload["token"], payload["new_password"])
     return "", 204
 
 

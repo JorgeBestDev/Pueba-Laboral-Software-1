@@ -388,6 +388,25 @@ export async function changePassword(input: { current_password: string; new_pass
   await apiFetch<void>('/auth/me/password', { method: 'PATCH', body: JSON.stringify(input), skipCartSession: true })
 }
 
+export async function requestPasswordReset(email: string): Promise<string> {
+  const response = await apiFetch<{ data: { message: string } }>('/auth/password-reset/request', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+    skipAuth: true,
+    skipCartSession: true,
+  })
+  return response.data.message
+}
+
+export async function resetPassword(input: { token: string; new_password: string }): Promise<void> {
+  await apiFetch<void>('/auth/password-reset/confirm', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    skipAuth: true,
+    skipCartSession: true,
+  })
+}
+
 export async function logout(): Promise<void> {
   const tokens = getStoredTokens()
   if (!tokens) return
@@ -621,15 +640,34 @@ export type AIInteractionResult = {
   model?: string | null
 }
 
+export async function askAssistant(prompt: string): Promise<AIInteractionResult> {
+  const text = prompt.trim()
+  if (!text) throw new ApiError('Escribe una pregunta para el asistente.', 400, 'empty_prompt')
+
+  const tokens = getStoredTokens()
+  const sessionKey = tokens?.access_token ? undefined : getCartSessionKey()
+  const res = await apiFetch<{ data: AIInteractionResult }>('/ai/interactions', {
+    method: 'POST',
+    body: JSON.stringify({
+      use_case: 'shopping_assistant',
+      prompt: text,
+      ...(sessionKey ? { session_key: sessionKey } : {}),
+    }),
+  })
+  return res.data
+}
+
+// Kept as a compatibility wrapper for other storefront consumers.
 export async function createAiInteraction(input: { use_case: string; prompt: string }): Promise<AIInteractionResult> {
   const tokens = getStoredTokens()
+  const sessionKey = tokens?.access_token ? undefined : getCartSessionKey()
   const res = await apiFetch<{ data: AIInteractionResult }>('/ai/interactions', {
     method: 'POST',
     body: JSON.stringify({
       ...input,
-      session_key: tokens?.access_token ? undefined : getCartSessionKey(),
+      prompt: input.prompt.trim(),
+      ...(sessionKey ? { session_key: sessionKey } : {}),
     }),
-    skipAuth: !tokens?.access_token,
   })
   return res.data
 }

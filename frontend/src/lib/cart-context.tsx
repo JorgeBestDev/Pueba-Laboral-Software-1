@@ -36,7 +36,47 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Tracks the latest cart synchronously so optimistic updates never race with
   // the async setCart state batching (e.g. two quick clicks in a row).
   const cartRef = useRef<Cart | null>(null)
+  const mutationQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const mutationVersionRef = useRef(0)
+  const itemIdAliasesRef = useRef(new Map<number, number>())
   cartRef.current = cart
+
+  const commitCart = useCallback((nextCart: Cart) => {
+    cartRef.current = nextCart
+    setCart(nextCart)
+  }, [])
+
+  const enqueueMutation = useCallback(
+    (
+      mutation: () => Promise<Cart>,
+      previousCart: Cart,
+      version: number,
+      fallbackMessage: string,
+    ) => {
+      mutationQueueRef.current = mutationQueueRef.current
+        .then(async () => {
+          const updated = await mutation()
+          // Only the response for the newest local mutation may replace the
+          // optimistic state. Older responses are still useful for resolving
+          // temporary item IDs, but would otherwise make the UI jump backwards.
+          if (version === mutationVersionRef.current) commitCart(updated)
+        })
+        .catch(async (requestError) => {
+          if (version === mutationVersionRef.current) {
+            try {
+              const reconciled = await api.getCurrentCart()
+              if (version === mutationVersionRef.current) commitCart(reconciled)
+            } catch {
+              commitCart(previousCart)
+            }
+          }
+          if (version === mutationVersionRef.current) {
+            setError(requestError instanceof api.ApiError ? requestError.message : fallbackMessage)
+          }
+        })
+    },
+    [commitCart],
+  )
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -44,14 +84,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // Resolving the cart is the single owner of "merge anonymous cart into user cart"
       // so it never races with another call trying to create the user's cart at the same time.
       const current = api.getStoredTokens()?.access_token ? await api.mergeCart() : await api.getCurrentCart()
-      setCart(current)
+      commitCart(current)
       setError(null)
     } catch {
       setError('No se pudo cargar el carrito.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [commitCart])
 
   useEffect(() => {
     reload()
@@ -72,10 +112,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       if (!current) return   // reload failed, error already set by reload()
       const previousCart = current
+      const version = ++mutationVersionRef.current
 
       // Update the UI immediately (badge count, drawer) instead of waiting for the
       // round trip; the server response reconciles the real ids/prices right after.
       const existing = current.items.find((item) => item.variant_id === variantId)
+      const pendingItemIds = current.items
+        .filter((item) => item.variant_id === variantId && item.id < 0)
+        .map((item) => item.id)
+      const temporaryItemId = -Date.now() - Math.floor(Math.random() * 1000)
       const optimisticItems = existing
         ? current.items.map((item) =>
             item.variant_id === variantId ? { ...item, quantity: item.quantity + quantity } : item,
@@ -83,30 +128,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
         : [
             ...current.items,
             {
-              id: -Date.now(),
+              id: temporaryItemId,
               variant_id: variantId,
               quantity,
               unit_price: unitPrice ?? null,
             } as CartItem,
           ]
       const optimisticCart: Cart = { ...current, items: optimisticItems, total: computeTotal(optimisticItems) }
-      setCart(optimisticCart)
+      commitCart(optimisticCart)
       setDrawerOpen(true)
       // Fire-and-forget analytics event; it must never block cart feedback.
       api
         .recordEvent({ event_type: 'add_to_cart', metadata: { variant_id: variantId, quantity } })
         .catch(() => undefined)
 
-      try {
-        const updated = await api.addCartItem(current.id, variantId, quantity)
-        setCart(updated)
-      } catch (requestError) {
-        setCart(previousCart)
-        setError(requestError instanceof api.ApiError ? requestError.message : 'No se pudo añadir el producto.')
-        throw requestError
-      }
+      enqueueMutation(
+        async () => {
+          const updated = await api.addCartItem(current.id, variantId, quantity)
+          const serverItem = updated.items.find((item) => item.variant_id === variantId)
+          if (serverItem) {
+            const optimisticItemIds = existing ? pendingItemIds : [...pendingItemIds, temporaryItemId]
+            optimisticItemIds.forEach((optimisticItemId) => itemIdAliasesRef.current.set(optimisticItemId, serverItem.id))
+          }
+          return updated
+        },
+        previousCart,
+        version,
+        'No se pudo añadir el producto.',
+      )
     },
-    [reload],
+    [commitCart, enqueueMutation, reload],
   )
 
   const updateItem = useCallback(
@@ -115,18 +166,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (!current) return
       setError(null)
       const previousCart = current
+      const item = current.items.find((candidate) => candidate.id === itemId)
+      if (!item) return
+      const version = ++mutationVersionRef.current
       const optimisticItems = current.items.map((item) => (item.id === itemId ? { ...item, quantity } : item))
-      setCart({ ...current, items: optimisticItems, total: computeTotal(optimisticItems) })
+      commitCart({ ...current, items: optimisticItems, total: computeTotal(optimisticItems) })
 
-      try {
-        const updated = await api.updateCartItem(current.id, itemId, quantity)
-        setCart(updated)
-      } catch (requestError) {
-        setCart(previousCart)
-        setError(requestError instanceof api.ApiError ? requestError.message : 'No se pudo actualizar el carrito.')
-      }
+      enqueueMutation(
+        async () => {
+          const resolvedItemId = itemIdAliasesRef.current.get(itemId) ?? itemId
+          return api.updateCartItem(current.id, resolvedItemId, quantity)
+        },
+        previousCart,
+        version,
+        'No se pudo actualizar el carrito.',
+      )
     },
-    [],
+    [commitCart, enqueueMutation],
   )
 
   const removeItem = useCallback(
@@ -135,18 +191,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (!current) return
       setError(null)
       const previousCart = current
+      const item = current.items.find((candidate) => candidate.id === itemId)
+      if (!item) return
+      const version = ++mutationVersionRef.current
       const optimisticItems = current.items.filter((item) => item.id !== itemId)
-      setCart({ ...current, items: optimisticItems, total: computeTotal(optimisticItems) })
+      commitCart({ ...current, items: optimisticItems, total: computeTotal(optimisticItems) })
 
-      try {
-        const updated = await api.removeCartItem(current.id, itemId)
-        setCart(updated)
-      } catch (requestError) {
-        setCart(previousCart)
-        setError(requestError instanceof api.ApiError ? requestError.message : 'No se pudo eliminar el producto.')
-      }
+      enqueueMutation(
+        async () => {
+          const resolvedItemId = itemIdAliasesRef.current.get(itemId) ?? itemId
+          return api.removeCartItem(current.id, resolvedItemId)
+        },
+        previousCart,
+        version,
+        'No se pudo eliminar el producto.',
+      )
     },
-    [],
+    [commitCart, enqueueMutation],
   )
 
   const itemCount = useMemo(() => cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0, [cart])

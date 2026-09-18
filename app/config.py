@@ -41,7 +41,9 @@ class Config:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
     GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-    GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+    AI_PROVIDER_TIMEOUT_SECONDS = float(os.getenv("AI_PROVIDER_TIMEOUT_SECONDS", "10"))
+    AI_MAX_OUTPUT_TOKENS = int(os.getenv("AI_MAX_OUTPUT_TOKENS", "256"))
     # Self-contained math captcha for the admin login (no external service/keys).
     CAPTCHA_TOKEN_TTL_SECONDS = int(os.getenv("CAPTCHA_TOKEN_TTL_SECONDS", "300"))
     ADMIN_LOGIN_RATE_LIMIT = os.getenv("ADMIN_LOGIN_RATE_LIMIT", "8 per minute")
@@ -51,6 +53,19 @@ class Config:
     PRODUCT_IMAGE_WIDTH = int(os.getenv("PRODUCT_IMAGE_WIDTH", "800"))
     PRODUCT_IMAGE_HEIGHT = int(os.getenv("PRODUCT_IMAGE_HEIGHT", "800"))
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", str(8 * 1024 * 1024)))  # 8 MB
+    MAIL_SERVER = os.getenv("MAIL_SERVER", "")
+    MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))
+    MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
+    MAIL_USE_SSL = os.getenv("MAIL_USE_SSL", "false").lower() == "true"
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", MAIL_USERNAME or "no-reply@vokter.local")
+    PASSWORD_RESET_TTL_SECONDS = int(os.getenv("PASSWORD_RESET_TTL_SECONDS", "1800"))
+    PASSWORD_RESET_URL = os.getenv(
+        "PASSWORD_RESET_URL",
+        f"{FRONTEND_URL.split(',')[0].strip()}/reset-password",
+    )
+    PASSWORD_RESET_RATE_LIMIT = os.getenv("PASSWORD_RESET_RATE_LIMIT", "5 per hour")
 
 
 class DevelopmentConfig(Config):

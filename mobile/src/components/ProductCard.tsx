@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import type { Product } from '../api/types'
 import { mediaUrl } from '../api/client'
+import { FavoriteButton } from './FavoriteButton'
 import { colors } from '../theme'
 
 type ProductCardProps = {
@@ -11,12 +12,16 @@ type ProductCardProps = {
   onAdd: () => void
   onIncrease: () => void
   onDecrease: () => void
+  isFavorite: boolean
+  favoriteLoading?: boolean
+  onToggleFavorite: () => void
 }
 
-export function ProductCard({ product, onPress, quantity, available, onAdd, onIncrease, onDecrease }: ProductCardProps) {
+export function ProductCard({ product, onPress, quantity, available, onAdd, onIncrease, onDecrease, isFavorite, favoriteLoading, onToggleFavorite }: ProductCardProps) {
   const image = mediaUrl(product.images?.[0]?.url)
   return (
     <View style={styles.card}>
+      <View style={styles.favorite}><FavoriteButton active={isFavorite} loading={favoriteLoading} onPress={onToggleFavorite} /></View>
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Ver ${product.name}`}>
         {image ? <Image source={{ uri: image }} style={styles.image} /> : <View style={styles.placeholder} />}
         <Text numberOfLines={1} style={styles.brand}>{product.brand ?? 'Vokter'}</Text>
@@ -50,7 +55,7 @@ export function ProductCard({ product, onPress, quantity, available, onAdd, onIn
   )
 }
 const styles = StyleSheet.create({
-  card: { flex: 1, gap: 5 }, image: { width: '100%', aspectRatio: 0.78, backgroundColor: colors.surface }, placeholder: { width: '100%', aspectRatio: 0.78, backgroundColor: colors.surface },
+  card: { flex: 1, gap: 5, position: 'relative' }, favorite: { position: 'absolute', top: 8, right: 8, zIndex: 1 }, image: { width: '100%', aspectRatio: 0.78, backgroundColor: colors.surface }, placeholder: { width: '100%', aspectRatio: 0.78, backgroundColor: colors.surface },
   brand: { fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: colors.muted, marginTop: 4 }, name: { color: colors.ink, fontWeight: '600', minHeight: 36 },
   bottomRow: { minHeight: 36, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }, price: { color: colors.ink, fontWeight: '700' },
   cartButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.black }, cartButtonDisabled: { opacity: 0.32 }, cartIcon: { fontSize: 17 },

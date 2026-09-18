@@ -2,7 +2,16 @@ import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
 import type { Address, AIInteractionResult, Cart, Category, Order, Product, Tokens, User, Wishlist } from './types'
 
-const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:5000/api/v1').replace(/\/$/, '')
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL
+const defaultApiUrl = Platform.OS === 'android'
+  ? 'http://10.0.2.2:5000/api/v1'
+  : 'http://127.0.0.1:5000/api/v1'
+const resolvedApiUrl = Platform.OS === 'android' && configuredApiUrl
+  // Android emulators expose the host machine through 10.0.2.2. A
+  // physical device still needs the computer's LAN IP in .env.
+  ? configuredApiUrl.replace(/^(https?:\/\/)(localhost|127\.0\.0\.1)(?=[:/]|$)/, '$110.0.2.2')
+  : configuredApiUrl ?? defaultApiUrl
+const API_URL = resolvedApiUrl.replace(/\/$/, '')
 const TOKENS_KEY = 'vokter.mobile.tokens'
 const CART_SESSION_KEY = 'vokter.mobile.cart-session'
 
@@ -31,6 +40,16 @@ const storage = {
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message) }
+}
+
+export function friendlyErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof ApiError)) return fallback
+  const message = error.message.toLowerCase()
+  if (message.includes('current password')) return 'La contraseña actual es incorrecta.'
+  if (error.status === 401) return 'El correo o la contraseña son incorrectos.'
+  if (message.includes('at least 8 characters')) return 'La contraseña debe tener al menos 8 caracteres.'
+  if (message.includes('email is already') || message.includes('email already')) return 'Ese correo ya está registrado.'
+  return error.message || fallback
 }
 
 export async function hydrateSession() {
@@ -107,6 +126,22 @@ export const api = {
     return result.user
   },
   getMe: () => request<User>('/auth/me'),
+  updateProfile: (input: { email?: string; first_name?: string; last_name?: string }) =>
+    request<User>('/auth/me', { method: 'PATCH', body: JSON.stringify(input) }),
+  changePassword: (input: { current_password: string; new_password: string }) =>
+    request<void>('/auth/me/password', { method: 'PATCH', body: JSON.stringify(input) }),
+  requestPasswordReset: (email: string) =>
+    request<{ message: string }>('/auth/password-reset/request', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+      public: true,
+    }),
+  resetPassword: (input: { token: string; new_password: string }) =>
+    request<void>('/auth/password-reset/confirm', {
+      method: 'POST',
+      body: JSON.stringify(input),
+      public: true,
+    }),
   async logout() {
     const refresh_token = tokens?.refresh_token
     if (refresh_token) await request<void>('/auth/logout', { method: 'POST', body: JSON.stringify({ refresh_token }) }).catch(() => undefined)
@@ -122,6 +157,23 @@ export const api = {
   getAddresses: () => request<Address[]>('/users/me/addresses'),
   getOrders: () => request<Order[]>('/orders'),
   getWishlist: () => request<Wishlist>('/wishlist'),
+  addWishlistItem: (productId: number) => request<Wishlist>('/wishlist/items', {
+    method: 'POST',
+    body: JSON.stringify({ product_id: productId }),
+  }),
+  removeWishlistItem: (itemId: number) => request<Wishlist>(`/wishlist/items/${itemId}`, {
+    method: 'DELETE',
+  }),
   checkout: (input: { cart_id: number; shipping_address: string; payment_method: 'card' | 'paypal' | 'cash_on_delivery'; idempotencyKey: string }) => request<Order>('/orders/checkout', { method: 'POST', headers: { 'Idempotency-Key': input.idempotencyKey }, body: JSON.stringify(input) }),
-  askAssistant: (prompt: string) => request<AIInteractionResult>('/ai/interactions', { method: 'POST', body: JSON.stringify({ use_case: 'shopping_assistant', prompt }) }),
+  async askAssistant(prompt: string) {
+    const sessionKey = tokens?.access_token ? undefined : await getCartSessionKey()
+    return request<AIInteractionResult>('/ai/interactions', {
+      method: 'POST',
+      body: JSON.stringify({
+        use_case: 'shopping_assistant',
+        prompt: prompt.trim(),
+        ...(sessionKey ? { session_key: sessionKey } : {}),
+      }),
+    })
+  },
 }

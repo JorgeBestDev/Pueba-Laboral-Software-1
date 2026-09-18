@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useCart } from '../../src/contexts/cart-context'
+import { useToast } from '../../src/contexts/toast-context'
 import { mediaUrl } from '../../src/api/client'
 import { LoadingView } from '../../src/components/LoadingView'
 import { colors } from '../../src/theme'
@@ -9,12 +10,13 @@ import { colors } from '../../src/theme'
 export default function CartScreen() {
   const router = useRouter()
   const { cart, loading, update, remove, replaceVariant } = useCart()
+  const { showToast } = useToast()
   if (loading) return <LoadingView />
   const items = cart?.items ?? []
   return <View style={styles.page}>
     <FlatList data={items} keyExtractor={(item) => String(item.id)} contentContainerStyle={styles.list} ListEmptyComponent={<Text style={styles.empty}>Tu carrito está vacío.</Text>} renderItem={({ item }) => <View style={styles.item}>
       {item.image_url ? <Image source={{ uri: mediaUrl(item.image_url) }} style={styles.image} /> : <View style={styles.imagePlaceholder} />}
-      <View style={styles.itemInfo}><Text numberOfLines={2} style={styles.productName}>{item.product_name}</Text><VariantPicker currentId={item.variant_id} currentName={item.variant_name} variants={item.available_variants} onSelect={(variantId) => replaceVariant(item.id, variantId).catch(() => Alert.alert('No fue posible cambiar la variante', 'La opción seleccionada no tiene suficiente disponibilidad.'))} /><Text style={styles.muted}>${item.unit_price ?? '0.00'} c/u</Text><View style={styles.quantity}><Pressable onPress={() => update(item.id, Math.max(1, item.quantity - 1))}><Text style={styles.control}>−</Text></Pressable><Text>{item.quantity}</Text><Pressable onPress={() => update(item.id, item.quantity + 1)}><Text style={styles.control}>+</Text></Pressable></View></View>
+      <View style={styles.itemInfo}><Text numberOfLines={2} style={styles.productName}>{item.product_name}</Text><VariantPicker currentId={item.variant_id} currentName={item.variant_name} variants={item.available_variants} onSelect={(variantId) => replaceVariant(item.id, variantId).catch(() => showToast('No fue posible cambiar la variante. La opción seleccionada no tiene suficiente disponibilidad.', 'error'))} /><Text style={styles.muted}>${item.unit_price ?? '0.00'} c/u</Text><View style={styles.quantity}><Pressable onPress={() => update(item.id, Math.max(1, item.quantity - 1))}><Text style={styles.control}>−</Text></Pressable><Text>{item.quantity}</Text><Pressable onPress={() => update(item.id, item.quantity + 1)}><Text style={styles.control}>+</Text></Pressable></View></View>
       <View style={{ alignItems: 'flex-end', gap: 12 }}><Text style={styles.total}>${((Number(item.unit_price) || 0) * item.quantity).toFixed(2)}</Text><Pressable onPress={() => remove(item.id)}><Text style={styles.remove}>Eliminar</Text></Pressable></View>
     </View>} />
     {items.length > 0 && <View style={styles.footer}><View style={styles.summary}><Text style={styles.total}>Subtotal</Text><Text style={styles.total}>${cart?.total}</Text></View><Pressable onPress={() => router.push('/checkout')} style={styles.checkout}><Text style={styles.checkoutText}>Ir a pagar</Text></Pressable></View>}

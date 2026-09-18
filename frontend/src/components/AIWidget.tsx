@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { createAiInteraction } from '../lib/api'
+import { ApiError, askAssistant } from '../lib/api'
 import { GlassButton, GlassInput, GlassPanel } from './ui'
 
 type Message = {
@@ -22,6 +22,16 @@ const SUGGESTIONS = [
 // Handles: **bold**, [text](url), and plain text.
 // Internal links (same host or relative) use React Router <Link>.
 // ---------------------------------------------------------------------------
+function productPathFromHref(href: string): string | null {
+  try {
+    const path = new URL(href, window.location.origin).pathname
+    const match = path.match(/^\/products\/([^/]+)$/)
+    return match ? `/products/${match[1]}` : null
+  } catch {
+    return null
+  }
+}
+
 function MarkdownLine({ text }: { text: string }) {
   // Split on **bold** and [text](url) tokens
   const tokens = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/)
@@ -34,13 +44,16 @@ function MarkdownLine({ text }: { text: string }) {
         const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
         if (linkMatch) {
           const [, label, href] = linkMatch
+          const productPath = productPathFromHref(href)
           // Determine if internal (relative or same origin)
           const isInternal =
+            productPath !== null ||
             href.startsWith('/') ||
             href.startsWith(window.location.origin)
-          const path = isInternal
+          const path = productPath ?? (isInternal
             ? href.replace(window.location.origin, '')
             : href
+          )
           return isInternal ? (
             <Link
               key={i}
@@ -88,8 +101,8 @@ function MarkdownMessage({ content }: { content: string }) {
   }
 
   lines.forEach((line, idx) => {
-    if (line.startsWith('- ') || line.startsWith('• ')) {
-      listItems.push(line.replace(/^[-•]\s/, ''))
+    if (line.startsWith('- ') || line.startsWith('* ') || line.startsWith('• ')) {
+      listItems.push(line.replace(/^[-*•]\s/, ''))
     } else {
       flushList(idx)
       if (line.trim() === '') {
@@ -140,7 +153,7 @@ export function AIWidget() {
     setPrompt('')
     setSending(true)
     try {
-      const result = await createAiInteraction({ use_case: 'shopping_assistant', prompt: text })
+      const result = await askAssistant(text)
       setMessages((current) => [
         ...current,
         {
@@ -151,12 +164,15 @@ export function AIWidget() {
           model: result.model,
         },
       ])
-    } catch {
+    } catch (error) {
       setMessages((current) => [
         ...current,
         {
           role: 'assistant',
-          content: 'No pude conectar con el servicio de IA en este momento. Por favor intenta de nuevo en unos momentos.',
+          content:
+            error instanceof ApiError && error.status < 500
+              ? error.message
+              : 'No pude conectar con el servicio de IA en este momento. Por favor intenta de nuevo en unos momentos.',
         },
       ])
     } finally {
@@ -278,4 +294,3 @@ export function AIWidget() {
     </div>
   )
 }
-

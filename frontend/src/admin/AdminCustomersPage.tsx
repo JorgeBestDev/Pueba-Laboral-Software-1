@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import * as adminApi from '../lib/admin-api'
-import { Modal } from '../components/ui'
+import { Modal, PasswordInput } from '../components/ui'
 import { useAdminAuth } from '../lib/admin-auth-context'
 import { AdminBadge, AdminEmptyState, AdminPagination } from './AdminUI'
 
@@ -338,14 +338,13 @@ export function AdminCustomersPage() {
             required
             className="glass-input"
           />
-          <input
-            type="password"
+          <PasswordInput
             value={form.password}
             onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
             placeholder={editingId ? 'Nueva contraseña (opcional)' : 'Contraseña (mín. 8 caracteres)'}
             minLength={editingId ? undefined : 8}
             required={!editingId}
-            className="glass-input"
+            className=""
           />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <select

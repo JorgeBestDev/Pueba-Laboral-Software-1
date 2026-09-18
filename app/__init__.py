@@ -5,6 +5,7 @@ from flask import Flask, send_from_directory
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_mail import Mail
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
@@ -17,6 +18,7 @@ migrate = Migrate()
 # enough to slow down brute-force attempts against the admin panel without
 # introducing an external dependency (Redis, etc.) for a single-instance deploy.
 limiter = Limiter(key_func=get_remote_address)
+mail = Mail()
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -34,6 +36,7 @@ def create_app(config_name: str | None = None) -> Flask:
     db.init_app(app)
     migrate.init_app(app, db)
     limiter.init_app(app)
+    mail.init_app(app)
 
     # In development accept any localhost/127.0.0.1 port so Vite (:5173/:5174)
     # and Expo Web (:8081/:8082) work without editing .env on every restart.

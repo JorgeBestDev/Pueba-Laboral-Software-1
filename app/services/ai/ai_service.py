@@ -9,6 +9,8 @@ from app.services.exceptions import ValidationError
 class AIService:
     def __init__(self, provider: GeminiProvider | None = None):
         self._provider = provider
+        self._configured_provider: GeminiProvider | None = None
+        self._provider_signature: tuple[str | None, str] | None = None
 
     def _get_provider(self, model: str | None = None) -> GeminiProvider:
         if self._provider is not None:
@@ -21,7 +23,15 @@ class AIService:
                 model_name = current_app.config.get("GEMINI_MODEL", "gemini-3.6-flash")
         except RuntimeError:
             pass
-        return GeminiProvider(api_key=api_key, model_name=model_name or "gemini-3.6-flash")
+        resolved_model = model_name or "gemini-3.6-flash"
+        signature = (api_key, resolved_model)
+        if self._configured_provider is None or self._provider_signature != signature:
+            self._configured_provider = GeminiProvider(
+                api_key=api_key,
+                model_name=resolved_model,
+            )
+            self._provider_signature = signature
+        return self._configured_provider
 
     def record_event(
         self,

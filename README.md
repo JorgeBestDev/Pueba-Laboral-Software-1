@@ -33,7 +33,7 @@ Plataforma de comercio electrónico completa con backend Flask, frontend React y
 | **Flask-CORS** | 5.0 | Control de orígenes cruzados |
 | **PyJWT** | 2.10 | Autenticación con JWT |
 | **Pillow** | 12.3 | Procesamiento de imágenes (cover-crop) |
-| **google-generativeai** | 0.8 | Proveedor IA — Google Gemini |
+| **google-genai** | 1.68 | Proveedor IA — Google Gemini (SDK oficial actual) |
 | **groq** | 0.28 | Proveedor IA — Groq (Llama 3) |
 | **Gunicorn** | 23.0 | Servidor WSGI para producción |
 | **SQLite** / **PostgreSQL** | — | Base de datos (dev / prod) |
@@ -92,7 +92,7 @@ El proyecto adopta una **arquitectura en capas** con separación clara de respon
 - **Rutas como adaptadores HTTP**: los endpoints solo validan la entrada HTTP, invocan un servicio y serializan la respuesta. No contienen lógica de negocio.
 - **Servicios como núcleo de negocio**: validaciones, reglas de inventario, transacciones y lógica de dominio viven exclusivamente en `app/services/`.
 - **Serialización centralizada**: `app/api/serializers.py` convierte modelos ORM a dicts JSON, evitando duplicación entre endpoints.
-- **IA con fallback en cadena**: Gemini → Groq → motor de reglas local. Si un proveedor agota su cuota, el siguiente toma el relevo automáticamente.
+- **IA con fallback en cadena**: Groq → Gemini → motor de reglas local. Si un proveedor falla, el siguiente toma el relevo automáticamente.
 - **Imágenes almacenadas localmente**: Pillow aplica cover-crop al subir (escala + recorte centrado) para que la imagen siempre encaje en el contenedor. Las URLs se guardan en base de datos y el backend las sirve en `/uploads/<filename>`.
 
 ---
@@ -145,7 +145,7 @@ Entrevista Main/
 │   │   ├── social/             # ReviewService, WishlistService
 │   │   ├── ai/
 │   │   │   ├── ai_service.py         # Orquesta la cadena de proveedores IA
-│   │   │   └── gemini_provider.py    # Gemini → Groq → RuleBasedFallback
+│   │   │   └── gemini_provider.py    # Groq → Gemini → RuleBasedFallback
 │   │   └── exceptions.py       # ValidationError, ResourceNotFoundError, etc.
 │   │
 │   └── schemas/
@@ -256,15 +256,30 @@ FRONTEND_URL=http://localhost:5173
 CORS_ORIGINS=http://localhost:5173
 CORS_SUPPORTS_CREDENTIALS=false
 
+# ── Recuperación de contraseña — SMTP ─────────────────
+# PASSWORD_RESET_URL debe apuntar a la pantalla web que consume el token.
+PASSWORD_RESET_URL=http://localhost:5173/reset-password
+PASSWORD_RESET_TTL_SECONDS=1800
+PASSWORD_RESET_RATE_LIMIT=5 per hour
+MAIL_SERVER=smtp.example.com
+MAIL_PORT=587
+MAIL_USE_TLS=true
+MAIL_USE_SSL=false
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_DEFAULT_SENDER=no-reply@example.com
+
 # ── IA — Google Gemini ────────────────────────────────
 # Obtén tu clave en: https://aistudio.google.com/app/apikey
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-3.6-flash
+AI_PROVIDER_TIMEOUT_SECONDS=10
+AI_MAX_OUTPUT_TOKENS=256
 
-# ── IA — Groq (fallback cuando Gemini agota cuota) ────
+# ── IA — Groq (proveedor principal de baja latencia) ──
 # Obtén tu clave en: https://console.groq.com  (14 400 req/día gratis)
 GROQ_API_KEY=
-GROQ_MODEL=llama-3.1-8b-instant
+GROQ_MODEL=openai/gpt-oss-20b
 
 # ── Imágenes ──────────────────────────────────────────
 UPLOAD_FOLDER=instance/uploads
@@ -292,7 +307,7 @@ VITE_API_URL=http://localhost:5000/api/v1
 $env:FLASK_APP = "run.py"
 
 flask db upgrade        # aplica todas las migraciones
-flask seed              # carga datos de prueba (categorías, productos, usuario admin)
+flask seed              # carga datos de prueba y garantiza mínimo 5 unidades por variante
 ```
 
 ### Backend (Flask)
@@ -431,7 +446,22 @@ POST /api/v1/ai/interactions    # Enviar mensaje al asistente
 POST /api/v1/ai/events          # Registrar evento de comportamiento
 ```
 
-El asistente usa la cadena de proveedores: **Gemini → Groq → motor de reglas local**. Si todos los proveedores externos fallan por cuota, el motor local responde directamente desde la base de datos (búsqueda de productos, información de envíos, pagos, devoluciones).
+### Recuperación de contraseña
+
+El flujo utiliza tokens aleatorios de un solo uso. La API almacena únicamente el
+hash SHA-256 del token, aplica una expiración configurable y revoca las sesiones
+activas cuando la contraseña se cambia.
+
+```text
+POST /api/v1/auth/password-reset/request   # { "email": "cliente@ejemplo.com" }
+POST /api/v1/auth/password-reset/confirm   # { "token": "...", "new_password": "..." }
+```
+
+La solicitud siempre responde con el mismo mensaje, exista o no la cuenta, para
+evitar enumerar correos registrados. En producción se deben configurar las
+variables SMTP y ejecutar `flask db upgrade` para crear `password_reset_tokens`.
+
+El asistente usa la cadena de proveedores: **Groq → Gemini → motor de reglas local**. Si todos los proveedores externos fallan por timeout, modelo no disponible, cuota o cualquier otro error, el motor local responde directamente desde la base de datos (búsqueda de productos, información de envíos, pagos, devoluciones).
 
 ---
 
@@ -447,7 +477,16 @@ El proyecto incluye `render.yaml` preconfigurado para [Render.com](https://rende
 | `DATABASE_URL` | URL de PostgreSQL |
 | `CORS_ORIGINS` | Dominio(s) del frontend en producción |
 | `CORS_SUPPORTS_CREDENTIALS` | `true` |
+| `PASSWORD_RESET_URL` | URL pública de la pantalla de nueva contraseña |
+| `PASSWORD_RESET_TTL_SECONDS` | Vigencia del token (por defecto 1800 segundos) |
+| `MAIL_SERVER` / `MAIL_PORT` | Servidor y puerto SMTP |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | Credenciales SMTP |
+| `MAIL_USE_TLS` / `MAIL_USE_SSL` | Seguridad de la conexión SMTP |
+| `MAIL_DEFAULT_SENDER` | Remitente de recuperación |
 | `GEMINI_API_KEY` | Clave de Google Gemini (opcional) |
+| `GEMINI_MODEL` | Modelo Gemini habilitado para la cuenta |
+| `AI_PROVIDER_TIMEOUT_SECONDS` | Tiempo máximo de espera por proveedor externo |
+| `AI_MAX_OUTPUT_TOKENS` | Límite de tokens de respuesta para mantener respuestas ágiles |
 | `GROQ_API_KEY` | Clave de Groq (opcional, fallback) |
 | `VITE_API_URL` | URL pública del backend (para el frontend) |
 

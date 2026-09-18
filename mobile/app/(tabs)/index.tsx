@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useRouter } from 'expo-router'
-import { api } from '../../src/api/client'
+import { ApiError, api } from '../../src/api/client'
 import type { Category, Product } from '../../src/api/types'
 import { LoadingView } from '../../src/components/LoadingView'
 import { ProductCard } from '../../src/components/ProductCard'
 import { useCart } from '../../src/contexts/cart-context'
+import { useToast } from '../../src/contexts/toast-context'
+import { useWishlist } from '../../src/contexts/wishlist-context'
 import { colors } from '../../src/theme'
 
 export default function CatalogScreen() {
   const router = useRouter()
   const { cart, add, update, remove } = useCart()
+  const { showToast } = useToast()
+  const { productIds, busyProductIds, toggle } = useWishlist()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [query, setQuery] = useState('')
@@ -57,16 +61,46 @@ export default function CatalogScreen() {
         const quantity = cartItem?.quantity ?? 0
         const runCartAction = async (action: () => Promise<void>) => {
           try { await action() }
-          catch { Alert.alert('No fue posible actualizar el carrito', 'Inténtalo nuevamente.') }
+          catch { showToast('No fue posible actualizar el carrito. Inténtalo nuevamente.', 'error') }
+        }
+        const toggleFavorite = async () => {
+          const wasFavorite = productIds.has(item.id)
+          try {
+            await toggle(item.id)
+            showToast(wasFavorite ? 'Eliminado de favoritos.' : '¡Añadido a favoritos!', 'success')
+          } catch (error) {
+            if (error instanceof ApiError && error.status === 401) {
+              showToast('Inicia sesión para guardar productos en favoritos.', 'info')
+              return
+            }
+            showToast('No fue posible actualizar favoritos. Inténtalo nuevamente.', 'error')
+          }
         }
         return <ProductCard
           product={item}
           onPress={() => router.push({ pathname: '/product/[slug]', params: { slug: item.slug } })}
           quantity={quantity}
           available={Boolean(variant)}
-          onAdd={() => variant && runCartAction(() => add(variant.id))}
-          onIncrease={() => variant && runCartAction(() => add(variant.id))}
+          onAdd={() => variant && runCartAction(() => add(variant.id, {
+            product_name: item.name,
+            variant_name: variant.name,
+            product_slug: item.slug,
+            image_url: item.images?.[0]?.url ?? null,
+            unit_price: variant.price,
+            available_variants: item.variants ?? [],
+          }))}
+          onIncrease={() => variant && runCartAction(() => add(variant.id, {
+            product_name: item.name,
+            variant_name: variant.name,
+            product_slug: item.slug,
+            image_url: item.images?.[0]?.url ?? null,
+            unit_price: variant.price,
+            available_variants: item.variants ?? [],
+          }))}
           onDecrease={() => cartItem && runCartAction(() => cartItem.quantity === 1 ? remove(cartItem.id) : update(cartItem.id, cartItem.quantity - 1))}
+          isFavorite={productIds.has(item.id)}
+          favoriteLoading={busyProductIds.has(item.id)}
+          onToggleFavorite={toggleFavorite}
         />
       }}
     />

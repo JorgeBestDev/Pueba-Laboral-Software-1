@@ -1,10 +1,11 @@
 """Flask CLI commands.
 
-``flask seed``  — populates the database with the full production catalog
+``flask seed``  — populates the database with the full demo catalog
                   (categories, products, variants, images) plus the two
                   standard demo user accounts.  The command is idempotent:
                   running it multiple times is safe; existing records are
-                  skipped rather than duplicated.
+                  skipped rather than duplicated. Demo inventory is restored
+                  to at least five units when it is depleted.
 """
 from decimal import Decimal
 
@@ -13,6 +14,8 @@ import click
 from app import db
 from app.models import Category, Product, ProductVariant, User, UserRole
 from app.models.catalog.product_image import ProductImage
+
+DEMO_STOCK_FLOOR = 5
 
 # ---------------------------------------------------------------------------
 # Catalog data — mirrors the current production database
@@ -216,7 +219,7 @@ PRODUCTS = [
         "categories": ["cable-y-cargadores"],
         "variants": [
             {"sku": "Cable-Tipo-C-120W-VokTer", "name": "120W",   "price": "6500.00",  "stock_quantity": 12},
-            {"sku": "Cable-2-en-1-VokTer",       "name": "2 en 1", "price": "13800.00", "stock_quantity": 4},
+            {"sku": "Cable-2-en-1-VokTer",       "name": "2 en 1", "price": "13800.00", "stock_quantity": 5},
         ],
         "images": ["/uploads/30464b5915aa4829a42c28aee2035988.jpg"],
     },
@@ -353,10 +356,11 @@ USERS = [
 def register_commands(app):
     @app.cli.command("seed")
     def seed():
-        """Populate the database with the full production catalog + demo accounts.
+        """Populate the database with the full demo catalog + demo accounts.
 
         Idempotent: records that already exist (matched by slug / email / sku)
-        are skipped so the command can be run multiple times safely.
+        are preserved, while depleted demo inventory is replenished to five
+        units so the command can be run multiple times safely.
         """
         # ── Categories ───────────────────────────────────────────────────────
         cat_map: dict[str, Category] = {}
@@ -385,8 +389,9 @@ def register_commands(app):
                 db.select(Product).where(Product.slug == prod_data["slug"])
             )
             if existing is not None:
-                # Product exists — skip creation but still ensure it is active
+                # Product exists — keep it active and replenish demo inventory.
                 existing.is_active = True
+                _sync_variants(existing, prod_data)
                 _sync_images(existing, prod_data["images"])
                 continue
 
@@ -404,23 +409,9 @@ def register_commands(app):
                 if cat_slug in cat_map:
                     product.categories.append(cat_map[cat_slug])
 
-            # Attach variants
-            for var_data in prod_data.get("variants", []):
-                existing_var = db.session.scalar(
-                    db.select(ProductVariant).where(
-                        ProductVariant.sku == var_data["sku"]
-                    )
-                )
-                if existing_var is None:
-                    product.variants.append(
-                        ProductVariant(
-                            sku=var_data["sku"],
-                            name=var_data["name"],
-                            price=Decimal(var_data["price"]),
-                            stock_quantity=var_data["stock_quantity"],
-                            is_active=True,
-                        )
-                    )
+            # Attach variants. Products without explicit variants receive a
+            # single demo variant so they can also be added to the cart.
+            _sync_variants(product, prod_data)
 
             db.session.add(product)
             db.session.flush()  # get product.id before adding images
@@ -430,7 +421,7 @@ def register_commands(app):
 
             click.echo(
                 f"  + Product: {prod_data['name']}"
-                f" ({len(prod_data.get('variants', []))} variants,"
+                f" ({len(product.variants)} variants,"
                 f" {len(prod_data.get('images', []))} images)"
             )
 
@@ -466,3 +457,54 @@ def _sync_images(product: Product, image_urls: list[str]) -> None:
                     sort_order=order,
                 )
             )
+
+
+def _sync_variants(product: Product, product_data: dict) -> None:
+    """Ensure every demo product has purchasable inventory.
+
+    Existing inventory is preserved unless it falls below the demo floor.
+    This makes repeated ``flask seed`` runs useful after test purchases
+    without overwriting larger quantities or catalog changes made by an
+    administrator.
+    """
+    variant_data = product_data.get("variants") or [
+        {
+            "sku": f"{product_data['slug']}-default",
+            "name": "Única",
+            "price": product_data["base_price"],
+            "stock_quantity": DEMO_STOCK_FLOOR,
+        }
+    ]
+    product_variants = {variant.sku: variant for variant in product.variants}
+
+    for var_data in variant_data:
+        variant = product_variants.get(var_data["sku"])
+        if variant is None:
+            variant = db.session.scalar(
+                db.select(ProductVariant).where(
+                    ProductVariant.sku == var_data["sku"]
+                )
+            )
+
+        if variant is None:
+            product.variants.append(
+                ProductVariant(
+                    sku=var_data["sku"],
+                    name=var_data["name"],
+                    price=Decimal(var_data["price"]),
+                    stock_quantity=max(
+                        int(var_data.get("stock_quantity", DEMO_STOCK_FLOOR)),
+                        DEMO_STOCK_FLOOR,
+                    ),
+                    is_active=True,
+                )
+            )
+            continue
+
+        if variant.product_id is not None and variant.product_id != product.id:
+            raise click.ClickException(
+                f"SKU '{var_data['sku']}' already belongs to another product."
+            )
+
+        if variant.stock_quantity < DEMO_STOCK_FLOOR:
+            variant.stock_quantity = DEMO_STOCK_FLOOR

@@ -17,6 +17,8 @@ import { CatalogPage } from './pages/CatalogPage'
 import { CheckoutPage } from './pages/CheckoutPage'
 import { OrderTrackerPage } from './pages/OrderTrackerPage'
 import { ProductDetailPage } from './pages/ProductDetailPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 
 const NAV_LINKS = [
   { label: 'Novedades', href: '/#new' },
@@ -191,6 +193,8 @@ function App() {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/account/orders/:id" element={<OrderTrackerPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Route>
     </Routes>
   )

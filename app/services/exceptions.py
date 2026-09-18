@@ -25,3 +25,8 @@ class BusinessRuleError(ServiceError):
 class AuthenticationError(ServiceError):
     code = "authentication_required"
     status_code = 401
+
+
+class DeliveryError(ServiceError):
+    code = "delivery_unavailable"
+    status_code = 503

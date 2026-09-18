@@ -44,4 +44,10 @@ export type Cart = {
 export type Address = { id: number; label: string | null; street: string; city: string; state: string | null; postal_code: string | null; country: string; is_default: boolean }
 export type Order = { id: number; status: string; total: string; created_at?: string; shipment: { status: string; tracking_number: string | null; carrier: string | null } | null }
 export type Wishlist = { id: number; name: string; items: { id: number; product: Product }[] }
-export type AIInteractionResult = { id: number; response: string | null; provider?: string | null }
+export type AIInteractionResult = {
+  id: number
+  status: string
+  response: string | null
+  provider?: string | null
+  model?: string | null
+}

@@ -4,7 +4,7 @@ Aplicación para compradores construida con Expo y React Native. El panel de adm
 
 ## Inicio
 
-1. Copia `.env.example` como `.env` y asigna la URL alcanzable de la API.
+1. Copia `.env.example` como `.env` y asigna la URL alcanzable de la API. Para un teléfono físico, reemplaza `10.0.2.2` por la IP LAN del equipo que ejecuta Flask; `127.0.0.1` apunta al propio teléfono y no funcionará.
 2. Instala dependencias con `npm install`.
 3. Ejecuta `npm start` y abre la app con Expo Go o un emulador.
 

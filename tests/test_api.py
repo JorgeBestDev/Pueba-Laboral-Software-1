@@ -1,5 +1,7 @@
 import unittest
 from decimal import Decimal
+from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 from app import create_app, db
 from app.models import (
@@ -8,6 +10,7 @@ from app.models import (
     Category,
     Order,
     OrderStatus,
+    PasswordResetToken,
     Product,
     ProductVariant,
     User,
@@ -18,6 +21,9 @@ from app.models import (
 class ApiTestCase(unittest.TestCase):
     def setUp(self):
         self.app = create_app("testing")
+        # Tests must never call external providers from local environment keys.
+        self.app.config["GEMINI_API_KEY"] = ""
+        self.app.config["GROQ_API_KEY"] = ""
         self.context = self.app.app_context()
         self.context.push()
         db.create_all()
@@ -560,6 +566,99 @@ class ApiTestCase(unittest.TestCase):
         )
         self.assertEqual(login.status_code, 200)
 
+    def test_profile_update_validates_conflicts_and_passwords(self):
+        data = self.register("profile-validation@example.com")
+        self.register("already-used@example.com")
+        headers = self.auth_headers(data["access_token"])
+
+        duplicate_email = self.client.patch(
+            "/api/v1/auth/me",
+            headers=headers,
+            json={"email": "already-used@example.com"},
+        )
+        self.assertEqual(duplicate_email.status_code, 400)
+
+        empty_name = self.client.patch(
+            "/api/v1/auth/me",
+            headers=headers,
+            json={"first_name": "   "},
+        )
+        self.assertEqual(empty_name.status_code, 400)
+
+        wrong_password = self.client.patch(
+            "/api/v1/auth/me/password",
+            headers=headers,
+            json={"current_password": "incorrect", "new_password": "newpassword1"},
+        )
+        self.assertEqual(wrong_password.status_code, 401)
+
+        short_password = self.client.patch(
+            "/api/v1/auth/me/password",
+            headers=headers,
+            json={"current_password": "password1", "new_password": "short"},
+        )
+        self.assertEqual(short_password.status_code, 400)
+
+        unauthenticated = self.client.patch(
+            "/api/v1/auth/me",
+            json={"first_name": "No autorizado"},
+        )
+        self.assertEqual(unauthenticated.status_code, 401)
+
+    def test_password_reset_uses_single_use_hashed_token(self):
+        self.register("reset@example.com")
+        with patch("app.api.v1.identity.email_service.send_password_reset") as send_email:
+            response = self.client.post(
+                "/api/v1/auth/password-reset/request",
+                json={"email": "reset@example.com"},
+            )
+            self.assertEqual(response.status_code, 202)
+            reset_url = send_email.call_args.args[1]
+
+        token = parse_qs(urlparse(reset_url).query)["token"][0]
+        stored = db.session.query(PasswordResetToken).one()
+        self.assertNotEqual(stored.token_hash, token)
+
+        confirmation = self.client.post(
+            "/api/v1/auth/password-reset/confirm",
+            json={"token": token, "new_password": "resetpassword1"},
+        )
+        self.assertEqual(confirmation.status_code, 204)
+        self.assertEqual(
+            self.client.post(
+                "/api/v1/auth/login",
+                json={"email": "reset@example.com", "password": "resetpassword1"},
+            ).status_code,
+            200,
+        )
+        reused = self.client.post(
+            "/api/v1/auth/password-reset/confirm",
+            json={"token": token, "new_password": "anotherpassword1"},
+        )
+        self.assertEqual(reused.status_code, 400)
+
+    def test_password_reset_does_not_reveal_unknown_email(self):
+        with patch("app.api.v1.identity.email_service.send_password_reset") as send_email:
+            response = self.client.post(
+                "/api/v1/auth/password-reset/request",
+                json={"email": "unknown@example.com"},
+            )
+        self.assertEqual(response.status_code, 202)
+        send_email.assert_not_called()
+
+    def test_password_reset_reports_missing_mail_configuration(self):
+        self.register("missing-mail@example.com")
+        self.app.config["MAIL_SERVER"] = ""
+        response = self.client.post(
+            "/api/v1/auth/password-reset/request",
+            json={"email": "missing-mail@example.com"},
+        )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.get_json()["error"]["message"],
+            "El servicio de correo no está configurado",
+        )
+
     def test_ai_interaction_returns_response(self):
         response = self.client.post(
             "/api/v1/ai/interactions",
@@ -584,11 +683,10 @@ class ApiTestCase(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.text = "Te recomiendo el producto Test product por $10.00."
 
-        mock_model_instance = MagicMock()
-        mock_model_instance.generate_content.return_value = mock_response
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
 
-        with patch("google.generativeai.configure") as mock_configure, \
-             patch("google.generativeai.GenerativeModel", return_value=mock_model_instance) as mock_gen_model:
+        with patch("google.genai.Client", return_value=mock_client) as mock_client_factory:
             self.app.config["GEMINI_API_KEY"] = "fake-test-key"
             response = self.client.post(
                 "/api/v1/ai/interactions",
@@ -602,8 +700,73 @@ class ApiTestCase(unittest.TestCase):
             self.assertEqual(data["response"], "Te recomiendo el producto Test product por $10.00.")
             self.assertEqual(data["provider"], "google")
             self.assertEqual(data["model"], "gemini-3.6-flash")
-            mock_configure.assert_called_once_with(api_key="fake-test-key")
-            mock_model_instance.generate_content.assert_called_once()
+            mock_client_factory.assert_called_once()
+            mock_client.models.generate_content.assert_called_once()
+            second_response = self.client.post(
+                "/api/v1/ai/interactions",
+                json={
+                    "use_case": "shopping_assistant",
+                    "prompt": "¿Tienen accesorios?",
+                },
+            )
+            self.assertEqual(second_response.status_code, 201)
+            mock_client_factory.assert_called_once()
+            self.assertEqual(mock_client.models.generate_content.call_count, 2)
+
+    def test_ai_product_links_are_relative(self):
+        from unittest.mock import MagicMock, patch
+
+        mock_response = MagicMock()
+        mock_response.text = (
+            "Te recomiendo [Nike SB](https://vokter-web.onrender.com/products/Nike-SB-Negras?source=ia)."
+        )
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch("google.genai.Client", return_value=mock_client):
+            self.app.config["GEMINI_API_KEY"] = "fake-link-test-key"
+            response = self.client.post(
+                "/api/v1/ai/interactions",
+                json={
+                    "use_case": "shopping_assistant",
+                    "prompt": "Recomiéndame un producto",
+                },
+            )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(
+            response.get_json()["data"]["response"],
+            "Te recomiendo [Nike SB](/products/Nike-SB-Negras).",
+        )
+
+    def test_ai_interaction_migrates_deprecated_groq_model(self):
+        from unittest.mock import MagicMock, patch
+
+        completion = MagicMock()
+        completion.choices[0].message.content = "Respuesta desde Groq."
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = completion
+        self.app.config["GROQ_API_KEY"] = "fake-groq-key"
+        self.app.config["GROQ_MODEL"] = "llama-3.1-8b-instant"
+
+        with patch("groq.Groq", return_value=mock_client):
+            response = self.client.post(
+                "/api/v1/ai/interactions",
+                json={
+                    "use_case": "shopping_assistant",
+                    "prompt": "Recomiéndame algo para regalar",
+                },
+            )
+
+        self.assertEqual(response.status_code, 201)
+        data = response.get_json()["data"]
+        self.assertEqual(data["provider"], "groq")
+        self.assertEqual(data["model"], "openai/gpt-oss-20b")
+        self.assertEqual(data["response"], "Respuesta desde Groq.")
+        self.assertEqual(
+            mock_client.chat.completions.create.call_args.kwargs["model"],
+            "openai/gpt-oss-20b",
+        )
 
     def test_ai_event_is_recorded(self):
         response = self.client.post(

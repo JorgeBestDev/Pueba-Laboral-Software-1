@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ApiError,
@@ -14,9 +15,9 @@ import {
 import { useAuth } from '../lib/auth-context'
 import { useWishlist } from '../lib/wishlist-context'
 import { useToast } from '../lib/toast-context'
-import { Badge, GlassButton, GlassPanel } from '../components/ui'
+import { Badge, GlassButton, GlassInput, GlassPanel, PasswordInput } from '../components/ui'
 
-const TABS = ['orders', 'addresses', 'wishlist'] as const
+const TABS = ['orders', 'addresses', 'wishlist', 'profile'] as const
 type Tab = (typeof TABS)[number]
 
 const STATUS_TONE: Record<Order['status'], 'default' | 'success' | 'warning' | 'danger'> = {
@@ -151,6 +152,86 @@ function WishlistTab() {
   )
 }
 
+function ProfileTab() {
+  const { user, updateProfile, changePassword } = useAuth()
+  const { push } = useToast()
+  const [firstName, setFirstName] = useState(user?.first_name ?? '')
+  const [lastName, setLastName] = useState(user?.last_name ?? '')
+  const [email, setEmail] = useState(user?.email ?? '')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [savingPassword, setSavingPassword] = useState(false)
+
+  async function handleProfileSubmit(event: FormEvent) {
+    event.preventDefault()
+    setSavingProfile(true)
+    try {
+      await updateProfile({ first_name: firstName, last_name: lastName, email })
+      push('Datos personales actualizados', 'success')
+    } catch (error) {
+      push(error instanceof ApiError ? error.message : 'No se pudieron actualizar tus datos', 'error')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  async function handlePasswordSubmit(event: FormEvent) {
+    event.preventDefault()
+    if (newPassword !== confirmPassword) {
+      push('Las contraseñas nuevas no coinciden', 'error')
+      return
+    }
+    setSavingPassword(true)
+    try {
+      await changePassword({ current_password: currentPassword, new_password: newPassword })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      push('Contraseña actualizada correctamente', 'success')
+    } catch (error) {
+      push(error instanceof ApiError ? error.message : 'No se pudo actualizar la contraseña', 'error')
+    } finally {
+      setSavingPassword(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <GlassPanel className="p-5">
+        <h2 className="font-display text-lg uppercase tracking-tight">Datos personales</h2>
+        <p className="mt-1 text-sm text-neutral-500">Actualiza la información asociada a tu cuenta.</p>
+        <form onSubmit={handleProfileSubmit} className="mt-5 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <GlassInput required placeholder="Nombre" value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+            <GlassInput required placeholder="Apellido" value={lastName} onChange={(event) => setLastName(event.target.value)} />
+          </div>
+          <GlassInput required type="email" placeholder="Correo electrónico" value={email} onChange={(event) => setEmail(event.target.value)} />
+          <GlassButton type="submit" disabled={savingProfile}>
+            {savingProfile ? 'Guardando…' : 'Guardar cambios'}
+          </GlassButton>
+        </form>
+      </GlassPanel>
+
+      <GlassPanel className="p-5">
+        <h2 className="font-display text-lg uppercase tracking-tight">Cambiar contraseña</h2>
+        <p className="mt-1 text-sm text-neutral-500">Por seguridad, confirma tu contraseña actual.</p>
+        <form onSubmit={handlePasswordSubmit} className="mt-5 space-y-4">
+          <PasswordInput required minLength={8} placeholder="Contraseña actual" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <PasswordInput required minLength={8} placeholder="Nueva contraseña" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+            <PasswordInput required minLength={8} placeholder="Confirmar nueva contraseña" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+          </div>
+          <GlassButton type="submit" variant="ghost" disabled={savingPassword}>
+            {savingPassword ? 'Actualizando…' : 'Cambiar contraseña'}
+          </GlassButton>
+        </form>
+      </GlassPanel>
+    </div>
+  )
+}
+
 export function AccountPage() {
   const { user, isAuthenticated, logout } = useAuth()
   const navigate = useNavigate()
@@ -183,7 +264,7 @@ export function AccountPage() {
       </div>
 
       <div className="mt-8 flex gap-0 border border-neutral-200 text-sm font-medium">
-        {(['orders', 'addresses', 'wishlist'] as Tab[]).map((item) => (
+        {TABS.map((item) => (
           <button
             key={item}
             type="button"
@@ -192,7 +273,13 @@ export function AccountPage() {
               tab === item ? 'bg-black text-white' : 'text-neutral-600 hover:text-black'
             }`}
           >
-            {item === 'orders' ? 'Pedidos' : item === 'addresses' ? 'Direcciones' : 'Lista de deseos'}
+            {item === 'orders'
+              ? 'Pedidos'
+              : item === 'addresses'
+                ? 'Direcciones'
+                : item === 'wishlist'
+                  ? 'Lista de deseos'
+                  : 'Mi perfil'}
           </button>
         ))}
       </div>
@@ -201,6 +288,7 @@ export function AccountPage() {
         {tab === 'orders' && <OrdersTab />}
         {tab === 'addresses' && <AddressesTab />}
         {tab === 'wishlist' && <WishlistTab />}
+        {tab === 'profile' && <ProfileTab />}
       </div>
     </div>
   )

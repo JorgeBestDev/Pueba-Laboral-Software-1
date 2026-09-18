@@ -14,6 +14,22 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      - key: PASSWORD_RESET_URL
+        sync: false
+      - key: MAIL_SERVER
+        sync: false
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USE_TLS
+        value: "true"
+      - key: MAIL_USE_SSL
+        value: "false"
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_DEFAULT_SENDER
+        sync: false
 
   # Frontend Web (React + Vite + Tailwind)
   - type: web

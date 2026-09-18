@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth-context'
 import { useToast } from '../lib/toast-context'
-import { GlassButton, GlassInput, Modal } from './ui'
+import { GlassButton, GlassInput, Modal, PasswordInput } from './ui'
 
 export function AuthModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { login, register } = useAuth()
@@ -84,14 +85,18 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
-        <GlassInput
-          type="password"
+        <PasswordInput
           required
           minLength={8}
           placeholder="Contraseña"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
+        {mode === 'login' && (
+          <Link to="/forgot-password" onClick={() => { reset(); onClose() }} className="block text-right text-sm text-neutral-600 underline">
+            Olvidé mi contraseña
+          </Link>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <GlassButton type="submit" disabled={submitting} className="w-full justify-center">
           {submitting ? 'Procesando…' : mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}

@@ -5,12 +5,13 @@ from app.models.commerce import (
     Payment, PaymentMethod, PaymentStatus, Shipment, ShipmentStatus,
 )
 from app.models.common import TimestampMixin
-from app.models.identity import Address, AuthSession, User, UserRole
+from app.models.identity import Address, AuthSession, PasswordResetToken, User, UserRole
 from app.models.social import Review, Wishlist, WishlistItem
 
 __all__ = [
     "Address",
     "AuthSession",
+    "PasswordResetToken",
     "AIInteraction",
     "Cart",
     "CartItem",

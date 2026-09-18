@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 
 export function GlassPanel({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -107,6 +107,27 @@ export function GlassInput({
   return <input className={`glass-input ${className}`} {...props} />
 }
 
+export function PasswordInput({
+  className = '',
+  ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & { ref?: React.Ref<HTMLInputElement> }) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <div className="relative">
+      <input {...props} type={visible ? 'text' : 'password'} className={`glass-input w-full pr-11 ${className}`} />
+      <button
+        type="button"
+        onClick={() => setVisible((current) => !current)}
+        className="absolute right-0 top-0 flex h-full w-11 items-center justify-center text-neutral-500 hover:text-black"
+        aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        title={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+      >
+        {visible ? <IconEye /> : <IconEyeOff />}
+      </button>
+    </div>
+  )
+}
+
 export function Stars({ value }: { value: number | null }) {
   return (
     <span className="text-amber-500" aria-label={`${value ?? 0} de 5 estrellas`}>
@@ -195,6 +216,23 @@ export function IconBag({ className = 'h-5 w-5' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+    </svg>
+  )
+}
+
+export function IconEye({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5.25 12 5.25S20.268 7.943 21.542 12C20.268 16.057 16.477 18.75 12 18.75S3.732 16.057 2.458 12z" />
+      <circle cx="12" cy="12" r="2.75" />
+    </svg>
+  )
+}
+
+export function IconEyeOff({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18M10.58 10.58a2 2 0 002.84 2.84M9.88 5.09A10.94 10.94 0 0112 4.75c4.477 0 8.268 2.693 9.542 7.25a10.96 10.96 0 01-4.098 5.54M6.61 6.61A10.96 10.96 0 002.458 12C3.732 16.057 7.523 18.75 12 18.75c.73 0 1.44-.07 2.12-.2" />
     </svg>
   )
 }

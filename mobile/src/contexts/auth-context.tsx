@@ -8,6 +8,8 @@ type AuthValue = {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (input: { email: string; password: string; first_name: string; last_name: string }) => Promise<void>
+  updateProfile: (input: { email?: string; first_name?: string; last_name?: string }) => Promise<void>
+  changePassword: (input: { current_password: string; new_password: string }) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -26,8 +28,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const login = useCallback(async (email: string, password: string) => setUser(await api.login(email, password)), [])
   const register = useCallback(async (input: { email: string; password: string; first_name: string; last_name: string }) => setUser(await api.register(input)), [])
+  const updateProfile = useCallback(async (input: { email?: string; first_name?: string; last_name?: string }) => setUser(await api.updateProfile(input)), [])
+  const changePassword = useCallback(async (input: { current_password: string; new_password: string }) => { await api.changePassword(input) }, [])
   const logout = useCallback(async () => { await api.logout(); setUser(null) }, [])
-  const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading, login, register, logout])
+  const value = useMemo(() => ({ user, loading, login, register, updateProfile, changePassword, logout }), [user, loading, login, register, updateProfile, changePassword, logout])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
