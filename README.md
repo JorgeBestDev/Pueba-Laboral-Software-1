@@ -525,7 +525,6 @@ se encuentran en [`docs/screenshots/`](<C:/Users/Jorge/Documents/Programacion/En
 ### Panel administrativo
 
 <p align="center">
-  <img src="docs/screenshots/admin_login.PNG" alt="Inicio de sesión administrativo" width="32%">
   <img src="docs/screenshots/admin_dashboard.PNG" alt="Dashboard administrativo" width="66%">
 </p>
 
@@ -543,7 +542,9 @@ se encuentran en [`docs/screenshots/`](<C:/Users/Jorge/Documents/Programacion/En
 <p align="center">
   <img src="docs/screenshots/admin_order_status.PNG" alt="Actualización del estado de pedidos" width="49%">
 </p>
-
+<p align="center">
+  <img src="docs/screenshots/admin_login.PNG" alt="Inicio de sesión administrativo" width="32%">
+</p>  
 ### Aplicación móvil Android
 
 <p align="center">
