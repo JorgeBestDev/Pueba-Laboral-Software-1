@@ -2,6 +2,27 @@
 
 Plataforma de comercio electrónico completa con backend Flask, frontend React y asistente de IA integrado. Incluye panel de administración, catálogo de productos con imágenes, carrito de compras, gestión de pedidos, reseñas y lista de deseos.
 
+## Demo y descarga
+
+- **Aplicación web:** [vokter-web.onrender.com](https://vokter-web.onrender.com)
+- **Health check de la API:** [vokter-api.onrender.com/api/v1/health](https://vokter-api.onrender.com/api/v1/health)
+- **Descargar aplicación Android:** [vokter-mobile.apk](https://vokter-web.onrender.com/downloads/vokter-mobile.apk)
+- **Proyecto Android en Expo:** [ver proyecto EAS](https://expo.dev/accounts/jorgebestdev/projects/vokter-mobile)
+
+La aplicación móvil está disponible actualmente solo para Android. Desde el
+navbar de la aplicación web se puede abrir un modal con descripción, código QR
+y enlace alternativo de descarga.
+
+### Credenciales de demostración
+
+Después de ejecutar `flask seed`, están disponibles estas cuentas:
+
+- **Cliente:** `demo@vokter.local` / `demo-password`
+- **Administrador:** `admin@vokter.com` / `admin-password`
+
+Estas credenciales son únicamente para la evaluación local/demo y deben
+reemplazarse en cualquier entorno real.
+
 ---
 
 ## Tabla de contenidos
@@ -16,7 +37,9 @@ Plataforma de comercio electrónico completa con backend Flask, frontend React y
 8. [Panel de administración](#panel-de-administración)
 9. [API REST](#api-rest)
 10. [Aplicación móvil Android](#aplicación-móvil-android)
-11. [Despliegue en producción](#despliegue-en-producción)
+11. [Evidencias visuales](#evidencias-visuales)
+12. [Pruebas y calidad](#pruebas-y-calidad)
+13. [Despliegue en producción](#despliegue-en-producción)
 
 ---
 
@@ -35,7 +58,8 @@ Plataforma de comercio electrónico completa con backend Flask, frontend React y
 | **PyJWT** | 2.10 | Autenticación con JWT |
 | **Pillow** | 12.3 | Procesamiento de imágenes (cover-crop) |
 | **google-genai** | 1.68 | Proveedor IA — Google Gemini (SDK oficial actual) |
-| **groq** | 0.28 | Proveedor IA — Groq (Llama 3) |
+| **groq** | 0.28 | Proveedor IA — Groq (`openai/gpt-oss-20b`) |
+| **cloudinary** | 1.44 | Almacenamiento persistente de imágenes |
 | **Gunicorn** | 23.0 | Servidor WSGI para producción |
 | **SQLite** / **PostgreSQL** | — | Base de datos (dev / prod) |
 
@@ -48,6 +72,15 @@ Plataforma de comercio electrónico completa con backend Flask, frontend React y
 | **Vite** | 8 | Bundler y servidor de desarrollo |
 | **Tailwind CSS** | 4 | Estilos utilitarios |
 | **React Router** | 7 | Navegación SPA |
+
+### Aplicación móvil
+
+| Tecnología | Versión | Rol |
+|---|---|---|
+| **Expo** | 57 | Toolchain y distribución Android |
+| **React Native** | 0.86 | Interfaz móvil nativa |
+| **Expo Router** | 57 | Navegación basada en archivos |
+| **EAS Build** | — | Generación del APK Android |
 
 ---
 
@@ -404,6 +437,74 @@ El login incluye un **captcha matemático** anti-bot generado internamente (no r
 - **Catálogo**: crear / editar / desactivar productos, variantes y categorías. Subida de imágenes con preview y cover-crop automático.
 - **Pedidos**: ver y actualizar estados, datos de pago y envío.
 - **Usuarios**: listar clientes, ver detalle de compras.
+
+### Funcionalidades diferenciadoras
+
+- Catálogo con búsqueda, filtros, orden por novedades y más vendidos, stock y
+  navegación por categorías.
+- Carrito con actualización optimista, selección de variantes y persistencia
+  de sesión anónima.
+- Lista de deseos sincronizada entre la aplicación web y Android.
+- Recuperación de contraseña mediante correo, token de un solo uso, expiración
+  y almacenamiento seguro del hash.
+- Asistente IA con cadena de proveedores **Groq → Gemini → fallback local** y
+  enlaces internos a productos.
+- Imágenes procesadas con Pillow y almacenadas persistentemente en Cloudinary
+  en producción.
+- Aplicación móvil Android descargable desde la aplicación web mediante APK y
+  código QR.
+
+---
+
+## Evidencias visuales
+
+El requerimiento recomienda incluir evidencias visuales. Para la entrega final
+conviene agregar capturas optimizadas en `docs/screenshots/` y enlazarlas aquí.
+Como mínimo, se recomiendan:
+
+1. Catálogo web con filtros y tarjetas de producto.
+2. Carrito o checkout web.
+3. Asistente IA recomendando un producto.
+4. Panel de administración.
+5. Catálogo de la aplicación Android.
+6. Perfil móvil con direcciones y lista de deseos.
+7. Modal web de descarga con código QR.
+
+Los GIF no son obligatorios. Para una prueba técnica, las capturas PNG o
+WebP suelen ser preferibles porque cargan más rápido y permiten revisar una
+funcionalidad concreta. Un GIF corto solo aporta valor para flujos como
+agregar al carrito, cambiar una variante o abrir el modal de descarga.
+
+No se deben incluir capturas con contraseñas, tokens, claves API, correos
+personales ni valores de archivos `.env`.
+
+---
+
+## Pruebas y calidad
+
+Backend:
+
+```powershell
+.\venv\Scripts\python.exe -m unittest tests.test_api
+```
+
+Frontend web:
+
+```powershell
+cd frontend
+npm run build
+npm run lint
+```
+
+Aplicación móvil:
+
+```powershell
+cd mobile
+npm run typecheck
+```
+
+La suite backend cubre autenticación, catálogo, carrito, checkout, wishlist,
+direcciones, recuperación de contraseña, IA y administración.
 
 ---
 

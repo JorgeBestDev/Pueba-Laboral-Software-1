@@ -20,12 +20,12 @@ La aplicación móvil actualmente solo está disponible para Android. El APK
 incluido para descarga desde la aplicación web está en:
 
 ```
+../frontend/public/downloads/vokter-mobile.apk
+```
 
 Las imágenes de productos se sirven desde las URLs persistentes de Cloudinary
 devueltas por la API. El APK no necesita una configuración adicional para
-resolverlas.text
-../frontend/public/downloads/vokter-mobile.apk
-```
+resolverlas.
 
 Para generar una nueva compilación con Expo Application Services:
 
